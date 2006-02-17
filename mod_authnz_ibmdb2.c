@@ -23,17 +23,11 @@
 
 /* $Id$ */
 
-#define MODULE_RELEASE "mod_auth_ibmdb2/0.7.1"
+#define MODULE_RELEASE "mod_authnz_ibmdb2/0.8.1"
 
-#ifdef APACHE2
 #define PCALLOC apr_pcalloc
 #define SNPRINTF apr_snprintf
 #define PSTRDUP apr_pstrdup
-#else
-#define PCALLOC ap_pcalloc
-#define SNPRINTF ap_snprintf
-#define PSTRDUP ap_pstrdup
-#endif
 
 #include "httpd.h"
 #include "http_config.h"
@@ -41,9 +35,7 @@
 #include "http_log.h"
 #include "http_protocol.h"
 #include "sqlcli1.h"
-#ifdef APACHE2
 #include "http_request.h"   				/* for ap_hook_(check_user_id | auth_checker) */
-#endif
 #include "md5_crypt.h"						/* routines for validate_pw function */
 
 #include <sys/types.h>
@@ -84,13 +76,8 @@ typedef struct {
  * Error Logging (LOG_ERROR, LOG_DBG)
  */
 
-#ifdef APACHE2
 #define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
 #define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
-#else
-#define LOG_DBG( msg ) ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, r->server, "%s", msg )
-#define LOG_ERROR( msg ) ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r->server, "%s", msg )
-#endif
 
 #define MAXERRLEN 1024
 
@@ -116,7 +103,7 @@ typedef struct  {
   int  ibmdb2grpcaching;					/* is group information cached? */
   char *ibmdb2cachefile;					/* path to cache file */
   char *ibmdb2cachelifetime;				/* cache lifetime in seconds */
-} ibmdb2_auth_config_rec;
+} ibmdb2_authnz_config_rec;
 
 /*
  * Global environment and connection handles to db. If AuthIBMDB2KeepAlive
@@ -128,55 +115,35 @@ typedef struct  {
 static SQLHANDLE   henv;    				/* environment handle   */
 static SQLHANDLE   hdbc;    				/* db connection handle */
 
-static int write_group_cache( request_rec *r, const char *user, const char **grplist, ibmdb2_auth_config_rec *m );
-static char **read_group_cache( request_rec *r, const char *user, ibmdb2_auth_config_rec *m );
+static int write_group_cache( request_rec *r, const char *user, const char **grplist, ibmdb2_authnz_config_rec *m );
+static char **read_group_cache( request_rec *r, const char *user, ibmdb2_authnz_config_rec *m );
 
 /*
  * Callback to close ibmdb2 handle when necessary.  Also called when a
  * child httpd process is terminated.
  */
-#ifdef APACHE2
 static apr_status_t
-#else
-static void
-#endif
-mod_auth_ibmdb2_cleanup (void *notused)
+mod_authnz_ibmdb2_cleanup (void *notused)
 {
     SQLDisconnect( hdbc );                 	/* disconnect the database connection */
     SQLFreeHandle( SQL_HANDLE_DBC, hdbc ); 	/* free the connection handle         */
     SQLFreeHandle( SQL_HANDLE_ENV, henv );  /* free the environment handle        */
-#ifdef APACHE2
+
     return 0;
-#endif
+
 }
 
 /*
  * empty function necessary because register_cleanup requires it as one
  * of its parameters
  */
-#ifdef APACHE2
 static apr_status_t
-#else
-static void
-#endif
-mod_auth_ibmdb2_cleanup_child (void *notused)
+mod_authnz_ibmdb2_cleanup_child (void *notused)
 {
 	/* nothing */
-#ifdef APACHE2
     return 0;
-#endif
 }
 
-
-#ifdef APACHE1
-/*
- * handler to do cleanup on child exit
- */
-static void child_exit( server_rec *s, pool *p )
-{
-	mod_auth_ibmdb2_cleanup(NULL);
-}
-#endif
 
 /* int validate_pw( const char *sent, const char *real ); */
 
@@ -256,7 +223,7 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 
 /* ibmdb2_connect - connect to db */
 
-SQLRETURN ibmdb2_connect( request_rec *r, ibmdb2_auth_config_rec *m )
+SQLRETURN ibmdb2_connect( request_rec *r, ibmdb2_authnz_config_rec *m )
 {
 
     char errmsg[MAXERRLEN];
@@ -323,14 +290,10 @@ SQLRETURN ibmdb2_connect( request_rec *r, ibmdb2_auth_config_rec *m )
 
     if( !m->ibmdb2KeepAlive )				/* close db connection when request done */
     {
-#ifdef APACHE2
        apr_pool_cleanup_register
-#else
-       ap_register_cleanup
-#endif
        (r->pool, (void *)NULL,
- 			  mod_auth_ibmdb2_cleanup,
- 			  mod_auth_ibmdb2_cleanup_child);
+ 			  mod_authnz_ibmdb2_cleanup,
+ 			  mod_authnz_ibmdb2_cleanup_child);
     }
 
     return SQL_SUCCESS;
@@ -338,7 +301,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, ibmdb2_auth_config_rec *m )
 
 /* ibmdb2_disconnect - disconnect from db */
 
-SQLRETURN ibmdb2_disconnect( request_rec *r, ibmdb2_auth_config_rec *m )
+SQLRETURN ibmdb2_disconnect( request_rec *r, ibmdb2_authnz_config_rec *m )
 {
 
     if( m->ibmdb2KeepAlive )				/* if persisting dbconn, return without disconnecting */
@@ -367,15 +330,10 @@ SQLRETURN ibmdb2_disconnect( request_rec *r, ibmdb2_auth_config_rec *m )
 }
 
 
-#ifdef APACHE2
 static void *
-create_ibmdb2_auth_dir_config( apr_pool_t *p, char *d )
-#else
-static void *
-create_ibmdb2_auth_dir_config( pool *p, char *d )
-#endif
+create_ibmdb2_authnz_dir_config( apr_pool_t *p, char *d )
 {
-  ibmdb2_auth_config_rec *m = PCALLOC(p, sizeof(ibmdb2_auth_config_rec));
+  ibmdb2_authnz_config_rec *m = PCALLOC(p, sizeof(ibmdb2_authnz_config_rec));
   if( !m ) return NULL;						/* failure to get memory is a bad thing */
 
   /* DEFAULT values */
@@ -394,182 +352,92 @@ create_ibmdb2_auth_dir_config( pool *p, char *d )
   return (void *)m;
 }
 
-#ifdef APACHE2
 static
-command_rec ibmdb2_auth_cmds[] = {
+command_rec ibmdb2_authnz_cmds[] = {
 	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2user),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2user),
 	OR_AUTHCFG, "ibmdb2 server user name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2Password", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2passwd),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2passwd),
 	OR_AUTHCFG, "ibmdb2 server user password"),
 
 	AP_INIT_TAKE1("AuthIBMDB2Database", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2DB),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2DB),
 	OR_AUTHCFG, "ibmdb2 database name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserTable", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2pwtable),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2pwtable),
 	OR_AUTHCFG, "ibmdb2 user table name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupTable", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2grptable),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2grptable),
 	OR_AUTHCFG, "ibmdb2 group table name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2NameField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2NameField),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2NameField),
 	OR_AUTHCFG, "ibmdb2 User ID field name within table"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2GroupField),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2GroupField),
 	OR_AUTHCFG, "ibmdb2 Group field name within table"),
 
 	AP_INIT_TAKE1("AuthIBMDB2PasswordField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2PasswordField),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2PasswordField),
 	OR_AUTHCFG, "ibmdb2 Password field name within table"),
 
 	AP_INIT_FLAG("AuthIBMDB2CryptedPasswords", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2Crypted),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2Crypted),
 	OR_AUTHCFG, "ibmdb2 passwords are stored encrypted if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2KeepAlive", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2KeepAlive),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2KeepAlive),
 	OR_AUTHCFG, "ibmdb2 connection kept open across requests if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2Authoritative", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2Authoritative),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2Authoritative),
 	OR_AUTHCFG, "ibmdb2 lookup is authoritative if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2NoPasswd", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2NoPasswd),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2NoPasswd),
 	OR_AUTHCFG, "If On, only check if user exists; ignore password"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserCondition", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2UserCondition),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2UserCondition),
 	OR_AUTHCFG, "condition to add to user where-clause"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupCondition", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2GroupCondition),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2GroupCondition),
 	OR_AUTHCFG, "condition to add to group where-clause"),
 
 	AP_INIT_FLAG("AuthIBMDB2Caching", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2caching),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2caching),
 	OR_AUTHCFG, "If On, user credentials are cached"),
 
 	AP_INIT_FLAG("AuthIBMDB2GroupCaching", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2grpcaching),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2grpcaching),
 	OR_AUTHCFG, "If On, group information is cached"),
 
 	AP_INIT_TAKE1("AuthIBMDB2CacheFile", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2cachefile),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2cachefile),
 	OR_AUTHCFG, "cachefile where user credentials are stored"),
 
 	AP_INIT_TAKE1("AuthIBMDB2CacheLifetime", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2cachelifetime),
+	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2cachelifetime),
 	OR_AUTHCFG, "cache lifetime in seconds"),
 
   { NULL }
 };
-#else
-static
-command_rec ibmdb2_auth_cmds[] = {
-  { "AuthIBMDB2User", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2user),
-    OR_AUTHCFG, TAKE1, "ibmdb2 server user name" },
-
-  { "AuthIBMDB2Password", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2passwd),
-    OR_AUTHCFG, TAKE1, "ibmdb2 server user password" },
-
-  { "AuthIBMDB2Database", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2DB),
-    OR_AUTHCFG, TAKE1, "ibmdb2 database name" },
-
-  { "AuthIBMDB2UserTable", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2pwtable),
-    OR_AUTHCFG, TAKE1, "ibmdb2 user table name" },
-
-  { "AuthIBMDB2GroupTable", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2grptable),
-    OR_AUTHCFG, TAKE1, "ibmdb2 group table name" },
-
-  { "AuthIBMDB2NameField", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2NameField),
-    OR_AUTHCFG, TAKE1, "ibmdb2 User ID field name within table" },
-
-  { "AuthIBMDB2GroupField", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2GroupField),
-    OR_AUTHCFG, TAKE1, "ibmdb2 Group field name within table" },
-
-  { "AuthIBMDB2PasswordField", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2PasswordField),
-    OR_AUTHCFG, TAKE1, "ibmdb2 Password field name within table" },
-
-  { "AuthIBMDB2CryptedPasswords", ap_set_flag_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2Crypted),
-    OR_AUTHCFG, FLAG, "ibmdb2 passwords are stored encrypted if On" },
-
-  { "AuthIBMDB2KeepAlive", ap_set_flag_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2KeepAlive),
-    OR_AUTHCFG, FLAG, "ibmdb2 connection kept open across requests if On" },
-
-  { "AuthIBMDB2Authoritative", ap_set_flag_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2Authoritative),
-    OR_AUTHCFG, FLAG, "ibmdb2 lookup is authoritative if On" },
-
-  { "AuthIBMDB2NoPasswd", ap_set_flag_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2NoPasswd),
-    OR_AUTHCFG, FLAG, "If On, only check if user exists; ignore password" },
-
-  { "AuthIBMDB2UserCondition", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2UserCondition),
-    OR_AUTHCFG, TAKE1, "condition to add to user where-clause" },
-
-  { "AuthIBMDB2GroupCondition", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2GroupCondition),
-    OR_AUTHCFG, TAKE1, "condition to add to group where-clause" },
-
-  { "AuthIBMDB2Caching", ap_set_flag_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2caching),
-    OR_AUTHCFG, FLAG, "If On, user credentials are cached" },
-
-  { "AuthIBMDB2GroupCaching", ap_set_flag_slot,
-      (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2grpcaching),
-    OR_AUTHCFG, FLAG, "If On, group information is cached" },
-
-  { "AuthIBMDB2CacheFile", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2cachefile),
-    OR_AUTHCFG, TAKE1, "cachefile where user credentials are stored" },
-
-  { "AuthIBMDB2CacheLifetime", ap_set_string_slot,
-    (void*)XtOffsetOf(ibmdb2_auth_config_rec, ibmdb2cachelifetime),
-    OR_AUTHCFG, TAKE1, "cache lifetime in seconds" },
-
-  { NULL }
-};
-#endif
 
 
-#ifdef APACHE2
-module AP_MODULE_DECLARE_DATA ibmdb2_auth_module;
-#else
-module ibmdb2_auth_module;
-#endif
+module AP_MODULE_DECLARE_DATA ibmdb2_authnz_module;
 
-#ifdef APACHE2
-static int mod_auth_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
+static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
 	ap_add_version_component( p, MODULE_RELEASE );
 
     return OK;
 }
-#else
-static void mod_auth_ibmdb2_init_handler(server_rec *s, pool *p)
-{
-	ap_add_version_component( MODULE_RELEASE );
-}
-#endif
 
 /*
  * Fetch and return password string from database for named user.
@@ -577,7 +445,7 @@ static void mod_auth_ibmdb2_init_handler(server_rec *s, pool *p)
  * If user or password not found, returns NULL
  */
 
-static char *get_ibmdb2_pw( request_rec *r, char *user, ibmdb2_auth_config_rec *m )
+static char *get_ibmdb2_pw( request_rec *r, char *user, ibmdb2_authnz_config_rec *m )
 {
 	int         rowcount = 0;
 
@@ -769,7 +637,7 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, ibmdb2_auth_config_rec *
  * of any groups.
  */
 
-static char **get_ibmdb2_groups( request_rec *r, char *user, ibmdb2_auth_config_rec *m )
+static char **get_ibmdb2_groups( request_rec *r, char *user, ibmdb2_authnz_config_rec *m )
 {
 	char        *gname = NULL;
     char        **list = NULL;
@@ -1027,7 +895,7 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, ibmdb2_auth_config_
  * to query the backend db2 database.
  */
 
-static int write_cache( request_rec *r, const char *user, const char *password, ibmdb2_auth_config_rec *m )
+static int write_cache( request_rec *r, const char *user, const char *password, ibmdb2_authnz_config_rec *m )
 {
 	char errmsg[MAXERRLEN];
 
@@ -1085,7 +953,7 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
  * we need to query the backend db2 database.
  */
 
-static char *read_cache( request_rec *r, const char *user, ibmdb2_auth_config_rec *m )
+static char *read_cache( request_rec *r, const char *user, ibmdb2_authnz_config_rec *m )
 {
 	char errmsg[MAXERRLEN];
 
@@ -1186,7 +1054,7 @@ static char *read_cache( request_rec *r, const char *user, ibmdb2_auth_config_re
  * to query the backend db2 database.
  */
 
-static int write_group_cache( request_rec *r, const char *user, const char **grplist, ibmdb2_auth_config_rec *m )
+static int write_group_cache( request_rec *r, const char *user, const char **grplist, ibmdb2_authnz_config_rec *m )
 {
 	char errmsg[MAXERRLEN];
 
@@ -1298,7 +1166,7 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
  * we need to query the backend db2 database.
  */
 
-static char **read_group_cache( request_rec *r, const char *user, ibmdb2_auth_config_rec *m )
+static char **read_group_cache( request_rec *r, const char *user, ibmdb2_authnz_config_rec *m )
 {
 	char errmsg[MAXERRLEN];
 
@@ -1437,7 +1305,7 @@ static char **read_group_cache( request_rec *r, const char *user, ibmdb2_auth_co
 
 static int ibmdb2_authenticate_basic_user( request_rec *r )
 {
-	ibmdb2_auth_config_rec *sec = (ibmdb2_auth_config_rec *)ap_get_module_config (r->per_dir_config, &ibmdb2_auth_module);
+	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config (r->per_dir_config, &ibmdb2_authnz_module);
 	conn_rec   *c = r->connection;
 	const char *sent_pw, *real_pw;
 	int        res;
@@ -1456,11 +1324,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 	errmsg[0] = '\0';
 
-#ifdef APACHE2
     user = r->user;
-#else
-    user = c->user;
-#endif
 
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
@@ -1524,11 +1388,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 		ap_note_basic_auth_failure(r);
 
-#ifdef APACHE2
     	return HTTP_UNAUTHORIZED;
-#else
-		return AUTH_REQUIRED;
-#endif
 	}
 
 	/* if we don't require password, just return ok since they exist */
@@ -1566,11 +1426,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 		ap_note_basic_auth_failure(r);
 
-#ifdef APACHE2
 	    return HTTP_UNAUTHORIZED;
-#else
-		return AUTH_REQUIRED;
-#endif
 	}
 }
 
@@ -1580,23 +1436,15 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 static int ibmdb2_check_auth( request_rec *r )
 {
-	ibmdb2_auth_config_rec *sec = (ibmdb2_auth_config_rec *)ap_get_module_config(r->per_dir_config, &ibmdb2_auth_module);
+	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config(r->per_dir_config, &ibmdb2_authnz_module);
 
 	char errmsg[MAXERRLEN];
 
-#ifdef APACHE2
 	char *user = r->user;
-#else
-	char *user = r->connection->user;
-#endif
 
 	int method = r->method_number;
 
-#ifdef APACHE2
 	const apr_array_header_t *reqs_arr = ap_requires(r);
-#else
-	const array_header *reqs_arr = ap_requires(r);
-#endif
 
 	require_line *reqs = reqs_arr ? (require_line *)reqs_arr->elts : NULL;
 
@@ -1641,11 +1489,7 @@ static int ibmdb2_check_auth( request_rec *r )
 
 				ap_note_basic_auth_failure(r);
 
-#ifdef APACHE2
 				return HTTP_UNAUTHORIZED;
-#else
-				return AUTH_REQUIRED;
-#endif
 			}
 
 			/* loop through list of groups specified in the directives */
@@ -1673,11 +1517,7 @@ static int ibmdb2_check_auth( request_rec *r )
 
 			ap_note_basic_auth_failure(r);
 
-#ifdef APACHE2
 			return HTTP_UNAUTHORIZED;
-#else
-			return AUTH_REQUIRED;
-#endif
 		}
 	}
 
@@ -1685,51 +1525,20 @@ static int ibmdb2_check_auth( request_rec *r )
 }
 
 
-#ifdef APACHE2
 static void register_hooks(apr_pool_t *p)
 {
 	ap_hook_check_user_id(ibmdb2_authenticate_basic_user, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_auth_checker(ibmdb2_check_auth, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_hook_post_config(mod_auth_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_post_config(mod_authnz_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
-#endif
 
-#ifdef APACHE2
-
-module AP_MODULE_DECLARE_DATA ibmdb2_auth_module =
+module AP_MODULE_DECLARE_DATA ibmdb2_authnz_module =
 {
 	STANDARD20_MODULE_STUFF,
-	create_ibmdb2_auth_dir_config, 			/* dir config creater */
+	create_ibmdb2_authnz_dir_config, 		/* dir config creater */
 	NULL,                       			/* dir merger --- default is to override */
 	NULL,                       			/* server config */
 	NULL,                      				/* merge server config */
-	ibmdb2_auth_cmds,              			/* command apr_table_t */
+	ibmdb2_authnz_cmds,              		/* command apr_table_t */
 	register_hooks              			/* register hooks */
 };
-
-#else
-
-module ibmdb2_auth_module =
-{
-	STANDARD_MODULE_STUFF,
-	mod_auth_ibmdb2_init_handler,			/* initializer */
-	create_ibmdb2_auth_dir_config, 			/* dir config creater */
-	NULL,									/* dir merger --- default is to override */
-	NULL,									/* server config */
-	NULL,									/* merge server config */
-	ibmdb2_auth_cmds,						/* command table */
-	NULL,									/* handlers */
-	NULL,									/* filename translation */
-	ibmdb2_authenticate_basic_user, 		/* check_user_id */
-	ibmdb2_check_auth,						/* check auth */
-	NULL,									/* check access */
-	NULL,									/* type_checker */
-	NULL,									/* fixups */
-	NULL,									/* logger */
-	NULL,									/* header parser */
-	NULL,									/* child_init */
-	child_exit,								/* child_exit */
-	NULL									/* post read-request */
-};
-
-#endif
