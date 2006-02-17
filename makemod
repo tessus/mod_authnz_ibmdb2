@@ -12,7 +12,7 @@
 # Path settings
 
 DB2PATH=/home/db2inst1/sqllib
-APXS=/usr/local/apache/bin/apxs
+APXS=/usr/local/apache91/bin/apxs
 
 #
 # clean up left-overs from previous build:
