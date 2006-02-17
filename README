@@ -1,11 +1,9 @@
-Copyright (c) 2004 Helmut K. C. Tessarek
-All rights reserved.
+$Id$
 
+Copyright (c) 2006 Helmut K. C. Tessarek
 written by Helmut K. C. Tessarek
 
-Last Update: 01-07-2004
-
-http://mod-auth-ibmdb2.sourceforge.net/
+http://mod-auth-ibmdb2.sourceforge.net
 
 Contents:
 ---------
@@ -16,9 +14,8 @@ Contents:
 1) Description of the module
 -----------------------------
 
-mod_auth_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for
-storing user and group information. The module is designed for Apache 2.x and 1.x and supports
-several encryption methods.
+mod_authnz_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for
+storing user and group information.
 
 Here is a list of the new directives that come with the module:
 
@@ -90,7 +87,7 @@ Example how to use the module in the httpd.conf:
 2) File descriptions
 --------------------
 
-mod_auth_ibmdb2.c	the Apache module
+mod_authnz_ibmdb2.c	the Apache module
 md5_crypt.h		include file for validating passwords
 makemod			bash script to compile the module
 README			this file

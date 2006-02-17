@@ -1,10 +1,10 @@
-.TH mod_auth_ibmdb2 "8" "July 2004" "mod_auth_ibmdb2 0.7.1" "Apache module"
+.TH mod_authnz_ibmdb2 "8" "February 2006" "mod_authnz_ibmdb2 0.8.1" "Apache module"
 .SH NAME
-mod_auth_ibmdb2 \- Apache authentication module for DB2
+mod_authnz_ibmdb2 \- Apache authentication module for DB2
 .SH DESCRIPTION
-mod_auth_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for storing user and group information.
+mod_authnz_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for storing user and group information.
 .PP
-The module is designed for Apache 2.x and 1.x and supports several encryption methods. 
+The module is designed for Apache 2.2 and supports several encryption methods. 
 .SH "CONFIGURATION DIRECTIVES"
 These directives are used to control the behaviour of the authentication process.
 .PP
@@ -100,12 +100,12 @@ USERNAME                       GROUPNAME
 ------------------------------ --------------------------------
 .fi
 .PP
-The passwords are stored encrypted and the database connection should not be closed after the request. mod_auth_ibmdb2 should be the only authentication authority and a password is needed to be authenticated. The users that are in the group \fIadmin\fR should be allowed to access the protected area.
+The passwords are stored encrypted and the database connection should not be closed after the request. mod_authnz_ibmdb2 should be the only authentication authority and a password is needed to be authenticated. The users that are in the group \fIadmin\fR should be allowed to access the protected area.
 .br
 With the above assumptions, your httpd.conf should look like this:
 .PP
 .nf
-LoadModule    ibmdb2_auth_module     modules/mod_auth_ibmdb2.so
+LoadModule    ibmdb2_auth_module     modules/mod_authnz_ibmdb2.so
 
 Alias         /private               "/data/private/"
 
@@ -150,4 +150,4 @@ Written by Helmut K. C. Tessarek.
 Hopefully none :-) But if you find one, please report it at:
 http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
 .SH "WEB SITE"
-http://mod-auth-ibmdb2.sourceforge.net/
+http://mod-auth-ibmdb2.sourceforge.net

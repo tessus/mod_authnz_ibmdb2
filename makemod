@@ -1,19 +1,17 @@
 #! /bin/sh
 
+# $Id$
+
 # SCRIPT: makemod
-# Builds the mod_auth_ibmdb2 module and moves it to the modules directory
+# Builds the mod_authnz_ibmdb2 module and moves it to the modules directory
 # Usage: makemod
 
 # Set DB2PATH to where DB2 will be accessed.
-# Set APACHEVERSION to 
-#	APACHE1		Apache 1.x
-#	APACHE2		Apache 2.x
 # Set APXS to the path that points to your apxs binary
 
 # Path settings
 
 DB2PATH=/home/db2inst1/sqllib
-APACHEVERSION=APACHE2
 APXS=/usr/local/apache/bin/apxs
 
 #
@@ -24,7 +22,7 @@ then
 	rm -rf .libs
 fi
 
-for x in mod_auth_ibmdb2.la mod_auth_ibmdb2.lo mod_auth_ibmdb2.o mod_auth_ibmdb2.slo mod_auth_ibmdb2.so
+for x in mod_authnz_ibmdb2.la mod_authnz_ibmdb2.lo mod_authnz_ibmdb2.o mod_authnz_ibmdb2.slo mod_authnz_ibmdb2.so
 do
 	if [ -f $x ]
 	then
@@ -54,14 +52,8 @@ fi
 
 # Build the module
 
-$APXS -c -D $APACHEVERSION -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 -lcrypt -lgdbm mod_auth_ibmdb2.c
+$APXS -c -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 -lcrypt -lgdbm mod_authnz_ibmdb2.c
 
 # Moving the module to the apropriate directory
 
-if [ "$APACHEVERSION" = "APACHE2" ]; then
-   $APXS -i mod_auth_ibmdb2.la
-fi
-
-if [ "$APACHEVERSION" = "APACHE1" ]; then
-   $APXS -i mod_auth_ibmdb2.so
-fi
+$APXS -i mod_authnz_ibmdb2.la
