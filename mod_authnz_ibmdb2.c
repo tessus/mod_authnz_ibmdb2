@@ -37,8 +37,7 @@
 #include "http_protocol.h"
 #include "sqlcli1.h"
 #include "http_request.h"
-#include "md5_crypt.h"						/* routines for validate_pw function */
-
+#include "md5_crypt.h"						// routines for validate_pw function
 #include "mod_auth.h"
 
 #include <sys/types.h>
@@ -48,11 +47,22 @@
 #include <time.h>
 #include <gdbm.h>
 
+#ifndef FALSE								// FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE								// TRUE
+#define TRUE (!FALSE)
+#endif
+
 #define MAX_IBMDB2_UID_LENGTH   18
 #define MAX_IBMDB2_PWD_LENGTH   30
 #define MAX_UID_LENGTH          32
 #define MAX_PWD_LENGTH          64
 #define MAX_GRP_LENGTH         128
+
+#define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
+#define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
+#define MAXERRLEN             1024
 
 
 typedef struct {
@@ -60,102 +70,83 @@ typedef struct {
         time_t timestamp;
 } cached_password_timestamp;
 
-
 typedef struct {
         int    numgrps;
         time_t timestamp;
 } cached_group_timestamp;
 
-
-#ifndef FALSE								/* FALSE */
-#define FALSE 0
-#endif
-#ifndef TRUE								/* TRUE */
-#define TRUE (!FALSE)
-#endif
-
-
-/*
- * Error Logging (LOG_ERROR, LOG_DBG)
- */
-
-#define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
-#define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
-
-#define MAXERRLEN 1024
-
-/*
- * structure to hold the configuration details for the request
- */
+//	structure to hold the configuration details for the request
 typedef struct  {
 	apr_pool_t *pool;
 
-	char *ibmdb2user;						/* user ID to connect to db server */
-	char *ibmdb2passwd;						/* password to connect to db server */
-	char *ibmdb2DB;							/* Database name */
-	char *ibmdb2pwtable;					/* user password table */
-	char *ibmdb2grptable;					/* user group table */
-	char *ibmdb2NameField;					/* field in password/grp table with username */
-	char *ibmdb2PasswordField;				/* field in password table with password */
-	char *ibmdb2GroupField;					/* field in group table with group name */
-	int  ibmdb2Crypted;						/* are passwords encrypted? */
-	int  ibmdb2KeepAlive;					/* keep connection persistent? */
-	int  ibmdb2Authoritative;				/* are we authoritative? */
-	int  ibmdb2NoPasswd;					/* do we ignore password? */
-	char *ibmdb2UserCondition; 				/* Condition to add to the user where-clause in select query */
-	char *ibmdb2GroupCondition; 			/* Condition to add to the group where-clause in select query */
-	int  ibmdb2caching;						/* are user credentials cached? */
-	int  ibmdb2grpcaching;					/* is group information cached? */
-	char *ibmdb2cachefile;					/* path to cache file */
-	char *ibmdb2cachelifetime;				/* cache lifetime in seconds */
+	char *ibmdb2user;						// user ID to connect to db server
+	char *ibmdb2passwd;						// password to connect to db server
+	char *ibmdb2DB;							// Database name
+	char *ibmdb2pwtable;					// user password table
+	char *ibmdb2grptable;					// user group table
+	char *ibmdb2NameField;					// field in password/grp table with username
+	char *ibmdb2PasswordField;				// field in password table with password
+	char *ibmdb2GroupField;					// field in group table with group name
+	int  ibmdb2Crypted;						// are passwords encrypted?
+	int  ibmdb2KeepAlive;					// keep connection persistent?
+	int  ibmdb2Authoritative;				// are we authoritative?
+	int  ibmdb2NoPasswd;					// do we ignore password?
+	char *ibmdb2UserCondition; 				// Condition to add to the user where-clause in select query
+	char *ibmdb2GroupCondition; 			// Condition to add to the group where-clause in select query
+	int  ibmdb2caching;						// are user credentials cached?
+	int  ibmdb2grpcaching;					// is group information cached?
+	char *ibmdb2cachefile;					// path to cache file
+	char *ibmdb2cachelifetime;				// cache lifetime in seconds
 } authn_ibmdb2_config_t;
 
+//	structure to hold the sqlca variables
+typedef struct
+{
+	char msg[SQL_MAX_MESSAGE_LENGTH + 1];
+	char state[SQL_SQLSTATE_SIZE + 1];
+	int code;
+} sqlerr_t;
 
-module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
-
-/*
- * Global environment and connection handles to db. If AuthIBMDB2KeepAlive
- * is 'On', the connection is persisted across requests.
- * Need some other handwaving to validate connection still good...
- *
- */
-
-static SQLHANDLE   henv;    				/* environment handle   */
-static SQLHANDLE   hdbc;    				/* db connection handle */
+static SQLHANDLE   henv;    				// environment handle
+static SQLHANDLE   hdbc;    				// db connection handle
 
 static int write_group_cache( request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m );
 static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );
 
+module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
+
 /*
- * Callback to close ibmdb2 handle when necessary.  Also called when a
- * child httpd process is terminated.
- */
+	Callback to close ibmdb2 handle when necessary. Also called when a
+	child httpd process is terminated.
+*/
+
+/* {{{ static apr_status_t authnz_ibmdb2_cleanup(void *notused)
+*/
 static apr_status_t authnz_ibmdb2_cleanup(void *notused)
 {
-	SQLDisconnect( hdbc );                 	/* disconnect the database connection */
-	SQLFreeHandle( SQL_HANDLE_DBC, hdbc ); 	/* free the connection handle         */
-	SQLFreeHandle( SQL_HANDLE_ENV, henv );  /* free the environment handle        */
+	SQLDisconnect( hdbc );                 	// disconnect the database connection
+	SQLFreeHandle( SQL_HANDLE_DBC, hdbc ); 	// free the connection handle
+	SQLFreeHandle( SQL_HANDLE_ENV, henv );  // free the environment handle
 
 	return APR_SUCCESS;
 }
+/* }}} */
 
-/*
- * empty function necessary because register_cleanup requires it as one
- * of its parameters
- */
+/* {{{ static apr_status_t authnz_ibmdb2_cleanup_child(void *notused)
+empty function necessary because register_cleanup requires it as one
+of its parameters
+*/
 /*
 static apr_status_t authnz_ibmdb2_cleanup_child(void *notused)
 {
-
 	return APR_SUCESS;
 }
 */
+/* }}} */
 
-/* int validate_pw( const char *sent, const char *real ); */
-
-/* function to validate the password */
-
+/* {{{ int validate_pw( const char *sent, const char *real )
+*/
 int validate_pw( const char *sent, const char *real )
 {
 	unsigned int i = 0;
@@ -186,21 +177,13 @@ int validate_pw( const char *sent, const char *real )
 	   return TRUE;
 	else
 	   return FALSE;
-
 }
+/* }}} */
 
-/*
- * structure to hold the sqlca variables
- */
-typedef struct
-{
-	char msg[SQL_MAX_MESSAGE_LENGTH + 1];
-	char state[SQL_SQLSTATE_SIZE + 1];
-	int code;
-} sqlerr_t;
+//	function to check the statement handle and to return the sqlca structure
 
-/* function to check the statement handle and to return the sqlca structure */
-
+/* {{{ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
+*/
 sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 {
 	SQLCHAR message[SQL_MAX_MESSAGE_LENGTH + 1];
@@ -221,15 +204,16 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 		return sqlerr;
 	}
 }
+/* }}} */
 
 /*
- * open connection to DB server if necessary.  Return TRUE if connection
- * is good, FALSE if not able to connect.  If false returned, reason
- * for failure has been logged to error_log file already.
- */
+	open connection to DB server if necessary.  Return TRUE if connection
+	is good, FALSE if not able to connect.  If false returned, reason
+	for failure has been logged to error_log file already.
+*/
 
-/* ibmdb2_connect - connect to db */
-
+/* {{{ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
+*/
 SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 {
 
@@ -238,28 +222,28 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	char *uid = NULL;
 	char *pwd = NULL;
 	SQLRETURN   sqlrc;
-	SQLINTEGER  dead_conn = SQL_CD_TRUE; 	/* initialize to 'conn is dead' */
+	SQLINTEGER  dead_conn = SQL_CD_TRUE; 	// initialize to 'conn is dead'
 
-	/* test the database connection */
+	// test the database connection
 	sqlrc = SQLGetConnectAttr( hdbc, SQL_ATTR_CONNECTION_DEAD, &dead_conn, 0, NULL ) ;
 
-	if( dead_conn == SQL_CD_FALSE )			/* then the connection is alive */
+	if( dead_conn == SQL_CD_FALSE )			// then the connection is alive
 	{
 		LOG_DBG( "  DB connection is alive; re-using" );
 		return SQL_SUCCESS;
 	}
-	else 									/* connection is dead or not yet existent */
+	else 									// connection is dead or not yet existent
 	{
 		LOG_DBG( "  DB connection is dead or nonexistent; create connection" );
 	}
 
 	LOG_DBG( "  allocate an environment handle" );
 
-	/* allocate an environment handle */
+	// allocate an environment handle
 
 	SQLAllocHandle( SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv ) ;
 
-	/* allocate a connection handle     */
+	// allocate a connection handle
 
 	if( SQLAllocHandle( SQL_HANDLE_DBC, henv, &hdbc ) != SQL_SUCCESS )
 	{
@@ -267,7 +251,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 		return( SQL_ERROR ) ;
 	}
 
-	/* Set AUTOCOMMIT ON (all we are doing are SELECTs) */
+	// Set AUTOCOMMIT ON (all we are doing are SELECTs)
 
 	if( SQLSetConnectAttr( hdbc, SQL_ATTR_AUTOCOMMIT, ( void * ) SQL_AUTOCOMMIT_ON, SQL_NTS ) != SQL_SUCCESS )
 	{
@@ -275,7 +259,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 		return( SQL_ERROR ) ;
 	}
 
-	/* make the database connection */
+	// make the database connection
 
 	uid = m->ibmdb2user;
 	pwd = m->ibmdb2passwd;
@@ -290,11 +274,11 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 		return( SQL_ERROR ) ;
 	}
 
-	/* ELSE: connection was successful */
+	// ELSE: connection was successful
 
-	/* make sure dbconn is closed at end of request if specified */
+	// make sure dbconn is closed at end of request if specified
 
-	if( !m->ibmdb2KeepAlive )				/* close db connection when request done */
+	if( !m->ibmdb2KeepAlive )				// close db connection when request done
 	{
 		apr_pool_cleanup_register(r->pool, (void *)NULL,
 											authnz_ibmdb2_cleanup,
@@ -303,13 +287,14 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 
 	return SQL_SUCCESS;
 }
+/* }}} */
 
-/* ibmdb2_disconnect - disconnect from db */
-
+/* {{{ SQLRETURN ibmdb2_disconnect( request_rec *r, authn_ibmdb2_config_t *m )
+*/
 SQLRETURN ibmdb2_disconnect( request_rec *r, authn_ibmdb2_config_t *m )
 {
 
-	if( m->ibmdb2KeepAlive )				/* if persisting dbconn, return without disconnecting */
+	if( m->ibmdb2KeepAlive )				// if persisting dbconn, return without disconnecting
 	{
 		LOG_DBG( "  keepalive on; do not disconnect from database" );
 		return( SQL_SUCCESS );
@@ -321,20 +306,22 @@ SQLRETURN ibmdb2_disconnect( request_rec *r, authn_ibmdb2_config_t *m )
 
 	LOG_DBG( "  free connection handle" );
 
-	/* free the connection handle */
+	// free the connection handle
 
 	SQLFreeHandle( SQL_HANDLE_DBC, hdbc ) ;
 
 	LOG_DBG( "  free environment handle" );
 
-	/* free the environment handle */
+	// free the environment handle
 
 	SQLFreeHandle( SQL_HANDLE_ENV, henv ) ;
 
 	return( SQL_SUCCESS );
 }
+/* }}} */
 
-
+/* {{{ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
+*/
 static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 {
 	authn_ibmdb2_config_t *m =
@@ -342,23 +329,24 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 
 	m->pool = p;
 
-	if( !m ) return NULL;						/* failure to get memory is a bad thing */
+	if( !m ) return NULL;					// failure to get memory is a bad thing
 
-	/* DEFAULT values */
+	// DEFAULT values
 
 	m->ibmdb2NameField     = "username";
 	m->ibmdb2PasswordField = "password";
-	m->ibmdb2Crypted       = 1;              			/* passwords are encrypted */
-	m->ibmdb2KeepAlive     = 1;             			/* keep persistent connection */
-	m->ibmdb2Authoritative = 1;              			/* we are authoritative source for users */
-	m->ibmdb2NoPasswd      = 0;              			/* we require password */
-	m->ibmdb2caching       = 0;							/* user caching is turned off */
-	m->ibmdb2grpcaching    = 0;							/* group caching is turned off */
-	m->ibmdb2cachefile     = "/tmp/auth_cred_cache";	/* default cachefile */
-	m->ibmdb2cachelifetime = "300";						/* cache expires in 300 seconds (5 minutes) */
+	m->ibmdb2Crypted       = 1;              			// passwords are encrypted
+	m->ibmdb2KeepAlive     = 1;             			// keep persistent connection
+	m->ibmdb2Authoritative = 1;              			// we are authoritative source for users
+	m->ibmdb2NoPasswd      = 0;              			// we require password
+	m->ibmdb2caching       = 0;							// user caching is turned off
+	m->ibmdb2grpcaching    = 0;							// group caching is turned off
+	m->ibmdb2cachefile     = "/tmp/auth_cred_cache";	// default cachefile
+	m->ibmdb2cachelifetime = "300";						// cache expires in 300 seconds (5 minutes)
 
 	return m;
 }
+/* }}} */
 
 static const command_rec authnz_ibmdb2_cmds[] =
 {
@@ -437,8 +425,6 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	{ NULL }
 };
 
-
-//module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
 static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
