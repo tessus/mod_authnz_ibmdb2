@@ -352,7 +352,7 @@ create_ibmdb2_authnz_dir_config( apr_pool_t *p, char *d )
   return (void *)m;
 }
 
-static
+static const
 command_rec ibmdb2_authnz_cmds[] = {
 	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
 	(void *) APR_XtOffsetOf(ibmdb2_authnz_config_rec, ibmdb2user),
@@ -430,7 +430,7 @@ command_rec ibmdb2_authnz_cmds[] = {
 };
 
 
-module AP_MODULE_DECLARE_DATA ibmdb2_authnz_module;
+module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
 static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
@@ -1305,7 +1305,7 @@ static char **read_group_cache( request_rec *r, const char *user, ibmdb2_authnz_
 
 static int ibmdb2_authenticate_basic_user( request_rec *r )
 {
-	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config (r->per_dir_config, &ibmdb2_authnz_module);
+	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config (r->per_dir_config, &authnz_ibmdb2_module);
 	conn_rec   *c = r->connection;
 	const char *sent_pw, *real_pw;
 	int        res;
@@ -1436,7 +1436,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 static int ibmdb2_check_auth( request_rec *r )
 {
-	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config(r->per_dir_config, &ibmdb2_authnz_module);
+	ibmdb2_authnz_config_rec *sec = (ibmdb2_authnz_config_rec *)ap_get_module_config(r->per_dir_config, &authnz_ibmdb2_module);
 
 	char errmsg[MAXERRLEN];
 
@@ -1532,7 +1532,7 @@ static void register_hooks(apr_pool_t *p)
 	ap_hook_post_config(mod_authnz_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA ibmdb2_authnz_module =
+module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module =
 {
 	STANDARD20_MODULE_STUFF,
 	create_ibmdb2_authnz_dir_config, 		/* dir config creater */
