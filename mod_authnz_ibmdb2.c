@@ -1542,3 +1542,12 @@ module AP_MODULE_DECLARE_DATA ibmdb2_authnz_module =
 	ibmdb2_authnz_cmds,              		/* command apr_table_t */
 	register_hooks              			/* register hooks */
 };
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
+ */
