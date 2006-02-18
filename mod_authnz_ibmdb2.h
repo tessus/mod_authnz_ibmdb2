@@ -87,8 +87,8 @@ typedef struct
 } sqlerr_t;
 
 
-static SQLHANDLE   henv;    				// environment handle
-static SQLHANDLE   hdbc;    				// db connection handle
+static SQLHANDLE   henv;					// environment handle
+static SQLHANDLE   hdbc;					// db connection handle
 
 #endif
 

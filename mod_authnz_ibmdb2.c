@@ -828,46 +828,44 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 }
 /* }}} */
 
+//	callback from Apache to do the authentication of the user to his password
 
-
-/*
- * callback from Apache to do the authentication of the user to his password
- */
-
+/* {{{ static int ibmdb2_authenticate_basic_user( request_rec *r )
+*/
 static int ibmdb2_authenticate_basic_user( request_rec *r )
 {
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config (r->per_dir_config, &authnz_ibmdb2_module);
 	conn_rec   *c = r->connection;
 	const char *sent_pw, *real_pw;
 	int        res;
-    int passwords_match = 0;
+	int passwords_match = 0;
 	char *user;
-    char errmsg[MAXERRLEN];
+	char errmsg[MAXERRLEN];
 
-    if( (res = ap_get_basic_auth_pw(r, &sent_pw)) )
-    {
+	if( (res = ap_get_basic_auth_pw(r, &sent_pw)) )
+	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "ap_get_basic_auth_pw() returned [%i]; pw=[%s]\nend authenticate", res, sent_pw );
-	    LOG_DBG( errmsg );
+		LOG_DBG( errmsg );
 
-	    return res;
+		return res;
 	}
 
 	errmsg[0] = '\0';
 
-    user = r->user;
+	user = r->user;
 
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
 
-    if( !sec->ibmdb2pwtable )             	/* not configured for ibmdb2 authorization */
-    {
+	if( !sec->ibmdb2pwtable )             	// not configured for ibmdb2 authorization
+	{
 		LOG_DBG( "ibmdb2pwtable not set, return DECLINED\nend authenticate" );
 
 		return DECLINED;
 	}
 
-	/* Caching */
+	// Caching
 
 	if( sec->ibmdb2caching )
 	{
@@ -895,22 +893,21 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 		}
 	}
 
-	/* Caching End */
+	// Caching End
 
-
-    if( !(real_pw = get_ibmdb2_pw(r, user, sec)) )
-    {
+	if( !(real_pw = get_ibmdb2_pw(r, user, sec)) )
+	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "cannot find user [%s] in db; sent pw=[%s]", user, sent_pw );
 		LOG_DBG( errmsg );
 
-		/* user not found in database */
+		// user not found in database
 
 		if( !sec->ibmdb2Authoritative )
 		{
 			LOG_DBG( "ibmdb2Authoritative is Off, return DECLINED\nend authenticate" );
 
-			return DECLINED;				/* let other schemes find user */
+			return DECLINED;				// let other schemes find user
 		}
 
 		errmsg[0] = '\0';
@@ -922,13 +919,13 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
     	return HTTP_UNAUTHORIZED;
 	}
 
-	/* if we don't require password, just return ok since they exist */
+	// if we don't require password, just return ok since they exist
 	if( sec->ibmdb2NoPasswd )
 	{
 		return OK;
 	}
 
-	/* validate the password */
+	// validate the password
 
 	if( sec->ibmdb2Crypted )
 	{
@@ -942,7 +939,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 	if( passwords_match )
 	{
-		if( sec->ibmdb2caching )			/* Caching */
+		if( sec->ibmdb2caching )			// Caching
 		{
 			write_cache( r, user, real_pw, sec );
 		}
@@ -960,11 +957,12 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 	    return HTTP_UNAUTHORIZED;
 	}
 }
+/* }}} */
 
-/*
- * check if user is member of at least one of the necessary group(s)
- */
+//	check if user is member of at least one of the necessary group(s)
 
+/* {{{ static int ibmdb2_check_auth( request_rec *r )
+*/
 static int ibmdb2_check_auth( request_rec *r )
 {
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config(r->per_dir_config, &authnz_ibmdb2_module);
@@ -984,14 +982,14 @@ static int ibmdb2_check_auth( request_rec *r )
 
 	if( !sec->ibmdb2GroupField )
 	{
-		return DECLINED; 					/* not doing groups here */
+		return DECLINED; 					// not doing groups here
 	}
 	if( !reqs_arr )
 	{
-		return DECLINED; 					/* no "require" line in access config */
+		return DECLINED; 					// no "require" line in access config
 	}
 
-	/* if the group table is not specified, use the same as for password */
+	// if the group table is not specified, use the same as for password
 
 	if( !sec->ibmdb2grptable )
 	{
@@ -1003,14 +1001,14 @@ static int ibmdb2_check_auth( request_rec *r )
 		const char *t, *want;
 
 		if( !(reqs[x].method_mask & (1 << method)) )
-		   continue;
+			continue;
 
 		t = reqs[x].requirement;
 		want = ap_getword(r->pool, &t, ' ');
 
 		if( !strcmp(want,"group") )
 		{
-			/* check for list of groups from database only first time thru */
+			// check for list of groups from database only first time thru
 
 			if( !groups && !(groups = get_ibmdb2_groups(r, user, sec)) )
 			{
@@ -1023,20 +1021,20 @@ static int ibmdb2_check_auth( request_rec *r )
 				return HTTP_UNAUTHORIZED;
 			}
 
-			/* loop through list of groups specified in the directives */
+			// loop through list of groups specified in the directives
 
 			while( t[0] )
 			{
 				int i = 0;
 				want = ap_getword(r->pool, &t, ' ');
 
-				/* compare against each group to which this user belongs */
+				// compare against each group to which this user belongs
 
 				while( groups[i] )
 				{
-					/* last element is NULL */
+					// last element is NULL
 					if( !strcmp(groups[i],want) )
-					   return OK;			/* we found the user! */
+						return OK;			// we found the user!
 
 					++i;
 				}
@@ -1054,25 +1052,31 @@ static int ibmdb2_check_auth( request_rec *r )
 
 	return DECLINED;
 }
+/* }}} */
 
-
+/* {{{ static void register_hooks(apr_pool_t *p)
+*/
 static void register_hooks(apr_pool_t *p)
 {
 	ap_hook_check_user_id(ibmdb2_authenticate_basic_user, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_auth_checker(ibmdb2_check_auth, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_post_config(mod_authnz_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
+/* }}} */
 
+/* {{{ module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module =
+*/
 module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module =
 {
 	STANDARD20_MODULE_STUFF,
-	create_authnz_ibmdb2_dir_config, 		/* dir config creater */
-	NULL,                       			/* dir merger --- default is to override */
-	NULL,                       			/* server config */
-	NULL,                      				/* merge server config */
-	authnz_ibmdb2_cmds,              		/* command apr_table_t */
-	register_hooks              			/* register hooks */
+	create_authnz_ibmdb2_dir_config,		// dir config creater
+	NULL,									// dir merger --- default is to override
+	NULL,									// server config
+	NULL,									// merge server config
+	authnz_ibmdb2_cmds,						// command apr_table_t
+	register_hooks							// register hooks
 };
+/* }}} */
 
 /*
  * Local variables:
