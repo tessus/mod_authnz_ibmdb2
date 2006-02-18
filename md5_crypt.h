@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | mod_authnz_ibmdb2: authentication using an IBM DB2 database          |
+  | md5_crypt: routines for validate_pw function                         |
   +----------------------------------------------------------------------+
   | Copyright (c) 2006 Helmut K. C. Tessarek                             |
   +----------------------------------------------------------------------+
@@ -31,9 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef APACHE2
 #include <crypt.h>
-#endif
 
 /* Definitions and Constants */
 
@@ -914,7 +912,6 @@ int base64_encode_binary(char *encoded, const unsigned char *string, int len)
     *p++ = '\0';
     return p - encoded;
 }
-
 
 #endif
 

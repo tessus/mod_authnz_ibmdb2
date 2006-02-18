@@ -37,82 +37,17 @@
 #include "http_protocol.h"
 #include "sqlcli1.h"
 #include "http_request.h"
-#include "md5_crypt.h"						// routines for validate_pw function
 #include "mod_auth.h"
+
+#include "mod_authnz_ibmdb2.h"				// structures, defines, globals
+#include "md5_crypt.h"						// routines for validate_pw function
+#include "caching.h"						// functions for caching mechanism
 
 #include <sys/types.h>
 #include <sys/file.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-#include <gdbm.h>
-
-#ifndef FALSE								// FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE								// TRUE
-#define TRUE (!FALSE)
-#endif
-
-#define MAX_IBMDB2_UID_LENGTH   18
-#define MAX_IBMDB2_PWD_LENGTH   30
-#define MAX_UID_LENGTH          32
-#define MAX_PWD_LENGTH          64
-#define MAX_GRP_LENGTH         128
-
-#define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
-#define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
-#define MAXERRLEN             1024
-
-
-typedef struct {
-        char   password[MAX_PWD_LENGTH];
-        time_t timestamp;
-} cached_password_timestamp;
-
-typedef struct {
-        int    numgrps;
-        time_t timestamp;
-} cached_group_timestamp;
-
-//	structure to hold the configuration details for the request
-typedef struct  {
-	apr_pool_t *pool;
-
-	char *ibmdb2user;						// user ID to connect to db server
-	char *ibmdb2passwd;						// password to connect to db server
-	char *ibmdb2DB;							// Database name
-	char *ibmdb2pwtable;					// user password table
-	char *ibmdb2grptable;					// user group table
-	char *ibmdb2NameField;					// field in password/grp table with username
-	char *ibmdb2PasswordField;				// field in password table with password
-	char *ibmdb2GroupField;					// field in group table with group name
-	int  ibmdb2Crypted;						// are passwords encrypted?
-	int  ibmdb2KeepAlive;					// keep connection persistent?
-	int  ibmdb2Authoritative;				// are we authoritative?
-	int  ibmdb2NoPasswd;					// do we ignore password?
-	char *ibmdb2UserCondition; 				// Condition to add to the user where-clause in select query
-	char *ibmdb2GroupCondition; 			// Condition to add to the group where-clause in select query
-	int  ibmdb2caching;						// are user credentials cached?
-	int  ibmdb2grpcaching;					// is group information cached?
-	char *ibmdb2cachefile;					// path to cache file
-	char *ibmdb2cachelifetime;				// cache lifetime in seconds
-} authn_ibmdb2_config_t;
-
-//	structure to hold the sqlca variables
-typedef struct
-{
-	char msg[SQL_MAX_MESSAGE_LENGTH + 1];
-	char state[SQL_SQLSTATE_SIZE + 1];
-	int code;
-} sqlerr_t;
-
-
-static SQLHANDLE   henv;    				// environment handle
-static SQLHANDLE   hdbc;    				// db connection handle
-
-static int write_group_cache( request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m );
-static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );
 
 module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
@@ -348,6 +283,8 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 }
 /* }}} */
 
+/* {{{ static const command_rec authnz_ibmdb2_cmds[] =
+*/
 static const command_rec authnz_ibmdb2_cmds[] =
 {
 	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
@@ -424,108 +361,114 @@ static const command_rec authnz_ibmdb2_cmds[] =
 
 	{ NULL }
 };
+/* }}} */
 
-
+/* {{{ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
+*/
 static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
 	ap_add_version_component( p, MODULE_RELEASE );
 
     return OK;
 }
+/* }}} */
 
 /*
- * Fetch and return password string from database for named user.
- * If we are in NoPasswd mode, returns user name instead.
- * If user or password not found, returns NULL
- */
+	Fetch and return password string from database for named user.
+	If we are in NoPasswd mode, returns user name instead.
+	If user or password not found, returns NULL
+*/
 
+/* {{{ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m )
+*/
 static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m )
 {
 	int         rowcount = 0;
 
 	char        errmsg[MAXERRLEN];
-    int         rc = 0;
-    char        query[MAX_STRING_LEN];
-    char        *pw = NULL;
-    sqlerr_t	sqlerr;
-    SQLHANDLE   hstmt;   					/* statement handle     */
-    SQLRETURN   sqlrc = SQL_SUCCESS;
+	int         rc = 0;
+	char        query[MAX_STRING_LEN];
+	char        *pw = NULL;
+	sqlerr_t	sqlerr;
+	SQLHANDLE   hstmt;   					// statement handle
+	SQLRETURN   sqlrc = SQL_SUCCESS;
 
-    struct
-    {
-       SQLINTEGER ind ;
-       SQLCHAR    val[MAX_PWD_LENGTH] ;
-    } passwd ;         						/* variable to get data from the PASSWD column */
+	struct
+	{
+		SQLINTEGER ind ;
+		SQLCHAR    val[MAX_PWD_LENGTH] ;
+	} passwd;								// variable to get data from the PASSWD column
 
     LOG_DBG( "begin get_ibmdb2_pw()" );
 
-    /* Connect to the data source */
-    if( ibmdb2_connect( r, m ) != SQL_SUCCESS )
-    {
+	// Connect to the data source
+
+	if( ibmdb2_connect( r, m ) != SQL_SUCCESS )
+	{
 		LOG_DBG( "    ibmdb2_connect() cannot connect!" );
 
-        return NULL;
-    }
+		return NULL;
+	}
 
+	/*
+		If we are not checking for passwords, there may not be a password field
+		in the database.  We just look up the name field value in this case
+		since it is guaranteed to exist.
+	*/
 
-   /*
-    * If we are not checking for passwords, there may not be a password field
-    * in the database.  We just look up the name field value in this case
-    * since it is guaranteed to exist.
-    */
-    if( m->ibmdb2NoPasswd )
-    {
-        m->ibmdb2PasswordField = m->ibmdb2NameField;
-    }
+	if( m->ibmdb2NoPasswd )
+	{
+		m->ibmdb2PasswordField = m->ibmdb2NameField;
+	}
 
-    /* construct SQL query */
+	// construct SQL query
 
-    if( m->ibmdb2UserCondition )
-    {
+	if( m->ibmdb2UserCondition )
+	{
 		SNPRINTF( query, sizeof(query)-1, "SELECT rtrim(%s) FROM %s WHERE %s='%s' AND %s",
-	       m->ibmdb2PasswordField, m->ibmdb2pwtable, m->ibmdb2NameField,
-	       user, m->ibmdb2UserCondition);
-    }
-    else
-    {
+			m->ibmdb2PasswordField, m->ibmdb2pwtable, m->ibmdb2NameField,
+			user, m->ibmdb2UserCondition);
+	}
+	else
+	{
 		SNPRINTF( query, sizeof(query)-1, "SELECT rtrim(%s) FROM %s WHERE %s='%s'",
-	       m->ibmdb2PasswordField, m->ibmdb2pwtable, m->ibmdb2NameField,
-           user);
-    }
+			m->ibmdb2PasswordField, m->ibmdb2pwtable, m->ibmdb2NameField,
+			user);
+	}
 
-    sprintf( errmsg, "    query=[%s]", query );
-    LOG_DBG( errmsg );
+	sprintf( errmsg, "    query=[%s]", query );
+	LOG_DBG( errmsg );
 
-    LOG_DBG( "    allocate a statement handle" );
+	LOG_DBG( "    allocate a statement handle" );
 
-    /* allocate a statement handle */
+	// allocate a statement handle
 
-    sqlrc = SQLAllocHandle( SQL_HANDLE_STMT, hdbc, &hstmt ) ;
+	sqlrc = SQLAllocHandle( SQL_HANDLE_STMT, hdbc, &hstmt ) ;
 
-    LOG_DBG( "    prepare the statement" );
+	LOG_DBG( "    prepare the statement" );
 
-    /* prepare the statement */
+	// prepare the statement
 
     sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
 
-    /* Maybe implemented later - later binding of username
+	/* Maybe implemented later - later binding of username
 
-    errmsg[0] = '\0';
-    sprintf( errmsg, "bind username '%s' to the statement", user );
-    LOG_DBG( errmsg );
+	errmsg[0] = '\0';
+	sprintf( errmsg, "bind username '%s' to the statement", user );
+	LOG_DBG( errmsg );
 
-    sqlrc = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR,
-                              SQL_VARCHAR, MAX_UID_LENGTH, 0, user, MAX_UID_LENGTH, NULL);
+	sqlrc = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR,
+								SQL_VARCHAR, MAX_UID_LENGTH, 0, user, MAX_UID_LENGTH, NULL);
 
-    */
+	*/
 
-    LOG_DBG( "    execute the statement" );
+	LOG_DBG( "    execute the statement" );
 
-    /* execute the statement for username */
+	// execute the statement for username
 
-    sqlrc = SQLExecute( hstmt ) ;
+	sqlrc = SQLExecute( hstmt ) ;
 
-    if( sqlrc != SQL_SUCCESS )				/* check statement */
+	if( sqlrc != SQL_SUCCESS )				/* check statement */
 	{
 		sqlerr = get_stmt_err( hstmt, sqlrc );
 
@@ -533,7 +476,7 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 
 		switch( sqlerr.code )
 		{
-			case -204:						/* the table does not exist */
+			case -204:						// the table does not exist
 			   sprintf( errmsg, "table [%s] does not exist", m->ibmdb2pwtable );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -541,7 +484,7 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -206:						/* the column does not exist */
+			case -206:						// the column does not exist
 			   sprintf( errmsg, "column [%s] or [%s] does not exist (or both)", m->ibmdb2PasswordField, m->ibmdb2NameField );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -549,7 +492,7 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -551:						/* no privilege to access table */
+			case -551:						// no privilege to access table
 			   sprintf( errmsg, "user [%s] does not have the privilege to access table [%s]", m->ibmdb2user, m->ibmdb2pwtable );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -557,8 +500,8 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -10:						/* syntax error in user condition [string delimiter] */
-			case -104:						/* syntax error in user condition [unexpected token] */
+			case -10:						// syntax error in user condition [string delimiter]
+			case -104:						// syntax error in user condition [unexpected token]
 			   sprintf( errmsg, "syntax error in user condition [%s]", m->ibmdb2UserCondition );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -566,99 +509,102 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-		    default:
-		       break;
+			default:
+			   break;
 		}
 	}
 
-    LOG_DBG( "    fetch each row, and display" );
+	LOG_DBG( "    fetch each row, and display" );
 
-    /* fetch each row, and display */
+	// fetch each row, and display
 
-    sqlrc = SQLFetch( hstmt );
+	sqlrc = SQLFetch( hstmt );
 
-    if( sqlrc == SQL_NO_DATA_FOUND )
-    {
+	if( sqlrc == SQL_NO_DATA_FOUND )
+	{
 		LOG_DBG( "    query returned no data!" );
-    }
-    else
-    {
+	}
+	else
+	{
 		while( sqlrc != SQL_NO_DATA_FOUND )
-	    {
-		    rowcount++;
+		{
+			rowcount++;
 
-		    LOG_DBG( "    get data from query resultset" );
+			LOG_DBG( "    get data from query resultset" );
 
-		    sqlrc = SQLGetData( hstmt, 1, SQL_C_CHAR, passwd.val, MAX_PWD_LENGTH,
-                                &passwd.ind ) ;
+			sqlrc = SQLGetData( hstmt, 1, SQL_C_CHAR, passwd.val, MAX_PWD_LENGTH,
+								&passwd.ind ) ;
 
-            errmsg[0] = '\0';
-            sprintf( errmsg, "    password from database=[%s]", passwd.val );
-            LOG_DBG( errmsg );
+			errmsg[0] = '\0';
+			sprintf( errmsg, "    password from database=[%s]", passwd.val );
+			LOG_DBG( errmsg );
 
-            LOG_DBG( "    call SQLFetch() (point to next row)" );
+			LOG_DBG( "    call SQLFetch() (point to next row)" );
 
-            sqlrc = SQLFetch( hstmt );
+			sqlrc = SQLFetch( hstmt );
 		}
 	}
 
-    LOG_DBG( "    free statement handle" );
+	LOG_DBG( "    free statement handle" );
 
-    /* free the statement handle */
+	// free the statement handle
 
-    sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+	sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
 
-    /* disconnect from the data source */
+	// disconnect from the data source
 
-    ibmdb2_disconnect( r, m ) ;
+	ibmdb2_disconnect( r, m ) ;
 
-    LOG_DBG( "end get_ibmdb2_pw()" );
+	LOG_DBG( "end get_ibmdb2_pw()" );
 
-    if( rowcount > 1 )
-    {
+	if( rowcount > 1 )
+	{
 		LOG_ERROR( "query returns more than 1 row -> ooops (forgot pk on username?)" );
-        return NULL;
-    }
+		return NULL;
+	}
 
-    pw = (char *)PSTRDUP(r->pool, passwd.val);
-    return pw;
+	pw = (char *)PSTRDUP(r->pool, passwd.val);
+	return pw;
 
 }
+/* }}} */
 
 /*
- * get list of groups from database.  Returns array of pointers to strings
- * the last of which is NULL.  returns NULL pointer if user is not member
- * of any groups.
- */
+	get list of groups from database.  Returns array of pointers to strings
+	the last of which is NULL.  returns NULL pointer if user is not member
+	of any groups.
+*/
 
+/* {{{ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config_t *m )
+*/
 static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config_t *m )
 {
 	char        *gname = NULL;
-    char        **list = NULL;
-    char        **cachelist = NULL;
-    char        query[MAX_STRING_LEN];
-    char 		errmsg[MAXERRLEN];
-    int         rowcount = 0;
-    int         rc      = 0;
-    int         numgrps = 0;
-    sqlerr_t	sqlerr;
-    SQLHANDLE   hstmt;   					/* statement handle     */
-    SQLRETURN   sqlrc = SQL_SUCCESS;
+	char        **list = NULL;
+	char        **cachelist = NULL;
+	char        query[MAX_STRING_LEN];
+	char 		errmsg[MAXERRLEN];
+	int         rowcount = 0;
+	int         rc      = 0;
+	int         numgrps = 0;
+	sqlerr_t	sqlerr;
+	SQLHANDLE   hstmt;   					// statement handle
+	SQLRETURN   sqlrc = SQL_SUCCESS;
 
-    struct {
-       SQLINTEGER ind ;
-       SQLCHAR    val[MAX_PWD_LENGTH] ;
-    } group ;         						/* variable to get data from the GROUPNAME column */
+	struct {
+		SQLINTEGER ind ;
+		SQLCHAR    val[MAX_PWD_LENGTH] ;
+	} group;								// variable to get data from the GROUPNAME column
 
-    typedef struct element
+	typedef struct element
 	{
-	   char data[MAX_GRP_LENGTH];
-	   struct element *next;
+		char data[MAX_GRP_LENGTH];
+		struct element *next;
 	} linkedlist_t;
 
 	linkedlist_t *element, *first;
 
-	/* read group cache */
+	// read group cache
 
 	if( m->ibmdb2grpcaching )
 	{
@@ -672,27 +618,26 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 
     LOG_DBG( "begin get_ibmdb2_groups()" );
 
-    /* Connect to the data source */
-    if( ibmdb2_connect( r, m ) != SQL_SUCCESS )
-    {
+	if( ibmdb2_connect( r, m ) != SQL_SUCCESS )
+	{
 		LOG_DBG( "   ibmdb2_connect() cannot connect!" );
 
-        return NULL;
-    }
+		return NULL;
+	}
 
-    /* construct SQL query */
+	// construct SQL query
 
 	if( m->ibmdb2GroupCondition )
 	{
 		SNPRINTF( query, sizeof(query)-1, "SELECT rtrim(%s) FROM %s WHERE %s='%s' AND %s",
-	       m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
-	       user, m->ibmdb2GroupCondition);
+			m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
+			user, m->ibmdb2GroupCondition);
 	}
 	else
 	{
 		SNPRINTF( query, sizeof(query)-1, "SELECT rtrim(%s) FROM %s WHERE %s='%s'",
-	       m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
-	       user);
+			m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
+			user);
 	}
 
 	errmsg[0] = '\0';
@@ -701,13 +646,13 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 
 	LOG_DBG( "    allocate a statement handle" );
 
-	/* allocate a statement handle */
+	// allocate a statement handle
 
 	sqlrc = SQLAllocHandle( SQL_HANDLE_STMT, hdbc, &hstmt ) ;
 
 	LOG_DBG( "    prepare the statement" );
 
-	/* prepare the statement */
+	// prepare the statement
 
 	sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
 
@@ -718,17 +663,17 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 	LOG_DBG( errmsg );
 
 	sqlrc = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR,
-	                          SQL_VARCHAR, MAX_UID_LENGTH, 0, user, MAX_UID_LENGTH, NULL);
+								SQL_VARCHAR, MAX_UID_LENGTH, 0, user, MAX_UID_LENGTH, NULL);
 
 	*/
 
 	LOG_DBG( "    execute the statement" );
 
-	/* execute the statement for username */
+	// execute the statement for username
 
 	sqlrc = SQLExecute( hstmt ) ;
 
-    if( sqlrc != SQL_SUCCESS )				/* check statement */
+	if( sqlrc != SQL_SUCCESS )				// check statement
 	{
 		sqlerr = get_stmt_err( hstmt, sqlrc );
 
@@ -736,7 +681,7 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 
 		switch( sqlerr.code )
 		{
-			case -204:						/* the table does not exist */
+			case -204:						// the table does not exist
 			   sprintf( errmsg, "table [%s] does not exist", m->ibmdb2grptable );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -744,7 +689,7 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -206:						/* the column does not exist */
+			case -206:						// the column does not exist
 			   sprintf( errmsg, "column [%s] or [%s] does not exist (or both)", m->ibmdb2GroupField, m->ibmdb2NameField );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -752,7 +697,7 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -551:						/* no privilege to access table */
+			case -551:						// no privilege to access table
 			   sprintf( errmsg, "user [%s] does not have the privilege to access table [%s]", m->ibmdb2user, m->ibmdb2grptable );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -760,8 +705,8 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -10:						/* syntax error in group condition [string delimiter] */
-			case -104:						/* syntax error in group condition [unexpected token] */
+			case -10:						// syntax error in group condition [string delimiter]
+			case -104:						// syntax error in group condition [unexpected token]
 			   sprintf( errmsg, "syntax error in group condition [%s]", m->ibmdb2GroupCondition );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
@@ -769,14 +714,14 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-		    default:
-		       break;
+			default:
+			   break;
 		}
 	}
 
 	LOG_DBG( "    fetch each row, and display" );
 
-	/* fetch each row, and display */
+	// fetch each row, and display
 
 	sqlrc = SQLFetch( hstmt );
 
@@ -791,50 +736,50 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 	}
 	else
 	{
-		/* Building linked list */
+		// Building linked list
 
 		element->next = NULL;
 
 		while( sqlrc != SQL_NO_DATA_FOUND )
-	    {
-		    rowcount++;						/* record counter */
+		{
+			rowcount++;						// record counter
 
-		    LOG_DBG( "    get data from query resultset" );
+			LOG_DBG( "    get data from query resultset" );
 
-		    sqlrc = SQLGetData( hstmt, 1, SQL_C_CHAR, group.val, MAX_GRP_LENGTH,
-	                            &group.ind ) ;
+			sqlrc = SQLGetData( hstmt, 1, SQL_C_CHAR, group.val, MAX_GRP_LENGTH,
+								&group.ind ) ;
 
-	        if( element->next == NULL )
+			if( element->next == NULL )
 			{
 				strcpy( element->data, group.val );
 				element->next = malloc(sizeof(linkedlist_t));
 				element = element->next;
 				element->next = NULL;
-            }
+			}
 
-	        errmsg[0] = '\0';
-	        sprintf( errmsg, "    group #%i from database=[%s]", rowcount, group.val );
-	        LOG_DBG( errmsg );
+			errmsg[0] = '\0';
+			sprintf( errmsg, "    group #%i from database=[%s]", rowcount, group.val );
+			LOG_DBG( errmsg );
 
-	        LOG_DBG( "    call SQLFetch() (point to next row)" );
+			LOG_DBG( "    call SQLFetch() (point to next row)" );
 
-	        sqlrc = SQLFetch( hstmt );
+			sqlrc = SQLFetch( hstmt );
 		}
 	}
 
 	LOG_DBG( "    free statement handle" );
 
-	/* free the statement handle */
+	// free the statement handle
 
 	sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
 
-	/* disconnect from the data source */
+	// disconnect from the data source
 
 	ibmdb2_disconnect( r, m ) ;
 
 	LOG_DBG( "end get_ibmdb2_groups()" );
 
-	/* Building list to be returned */
+	// Building list to be returned
 
 	numgrps = 0;
 
@@ -845,453 +790,45 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 	while( element->next != NULL )
 	{
 		if( element->data )
-		   list[numgrps] = (char *) PSTRDUP(r->pool, element->data);
+			list[numgrps] = (char *) PSTRDUP(r->pool, element->data);
 		else
-		   list[numgrps] = "";				/* if no data, make it empty, not NULL */
+			list[numgrps] = "";				// if no data, make it empty, not NULL
 
 		numgrps++;
-	    element=element->next;
-    }
+		element=element->next;
+	}
 
-    list[numgrps] = NULL;           		/* last element in array is NULL */
+	list[numgrps] = NULL;           		// last element in array is NULL
 
-    /* Free memory of linked list */
+	// Free memory of linked list
 
-    element = first;
+	element = first;
 
 	while( first->next != NULL )
 	{
 		first = element->next;
-	    free(element);
-	    element=first;
+		free(element);
+		element=first;
 	}
 
-    free(first);
+	free(first);
 
-    /* End of freeing memory of linked list */
+	// End of freeing memory of linked list
 
-    /* write group cache */
+	// write group cache
 
-    if( m->ibmdb2grpcaching )
-    {
+	if( m->ibmdb2grpcaching )
+	{
 		write_group_cache( r, user, (const char**)list, m );
 	}
 
-    /* Returning list */
+	// Returning list
 
-    return list;
-
+	return list;
 }
+/* }}} */
 
-/*
- * function to store the user credentials in the local cache, so that subsequent
- * http requests can validate the user directly from local cache without the need
- * to query the backend db2 database.
- */
 
-static int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m )
-{
-	char errmsg[MAXERRLEN];
-
-	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
-
-	cached_password_timestamp cpt;
-
-	datum datum_value;
-	GDBM_FILE gdbm;
-
-	char *my_password = (char *)password;
-	strcpy(cpt.password, my_password);
-
-	if ( !(time(&(cpt.timestamp))) )
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "unable to determine current time (write cache)");
-		LOG_ERROR( errmsg );
-		return( 1 );
-	}
-
-	datum_value.dptr = (void *)&cpt;
-	datum_value.dsize = sizeof(cpt);
-
-	gdbm = gdbm_open( m->ibmdb2cachefile, 0, GDBM_WRCREAT, 00664, NULL );
-
-	if ( gdbm != NULL )
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "storing user [%s] and pass [%s] in cache", my_user, my_password);
-		LOG_DBG( errmsg );
-
-		if( gdbm_store( gdbm, datum_user, datum_value, GDBM_REPLACE ) != 0 )
-		{
-			errmsg[0] = '\0';
-			sprintf( errmsg, "unable to store user [%s] in cache", my_user);
-			LOG_DBG( errmsg );
-		}
-
-		gdbm_close( gdbm );
-	}
-	else
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "could not open cachefile [%s] for writing", m->ibmdb2cachefile );
-		LOG_ERROR( errmsg );
-	}
-
-	return( 0 );
-}
-
-/*
- * function to check in the local cache to validate user, otherwise
- * we need to query the backend db2 database.
- */
-
-static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
-{
-	char errmsg[MAXERRLEN];
-
-	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
-
-	cached_password_timestamp cpt;
-	time_t current_time;
-
-	datum datum_value;
-
-	char *pw = NULL;
-
-	int MAXAGE = atoi( m->ibmdb2cachelifetime );
-
-	GDBM_FILE gdbm;
-
-	double time_diff;
-
-	gdbm = gdbm_open( m->ibmdb2cachefile, 0, GDBM_WRCREAT, 00664, NULL );
-
-	if( gdbm != NULL )
-	{
-		datum_value = gdbm_fetch( gdbm, datum_user );
-
-		if( datum_value.dptr != NULL )
-		{
-			if( datum_value.dsize != sizeof(cpt) )
-			{
-				errmsg[0] = '\0';
-				sprintf( errmsg, "we found our user in the cache but with corrupted record: %s \n", my_user);
-				LOG_ERROR( errmsg );
-				gdbm_close( gdbm );
-
-				return NULL;
-			}
-			else
-			{
-				memcpy((void *)&cpt, datum_value.dptr, datum_value.dsize);
-
-				if( !(time(&(current_time))) )
-				{
-					errmsg[0] = '\0';
-					sprintf( errmsg, "unable to determine current time (read cache)");
-					LOG_ERROR( errmsg );
-					gdbm_close( gdbm );
-
-					return NULL;
-				}
-
-				time_diff = difftime( current_time, cpt.timestamp );
-
-				if( MAXAGE < time_diff )
-				{
-					errmsg[0] = '\0';
-					sprintf( errmsg, "cached password for user [%s] is toooo old", my_user);
-					LOG_DBG( errmsg );
-					gdbm_close( gdbm );
-
-					return NULL;
-				}
-
-				pw = cpt.password;
-
-				/* Congratulations, we have a fresh cached entry */
-				errmsg[0] = '\0';
-				sprintf( errmsg, "user [%s] - [%s] found in cache", my_user, pw);
-				LOG_DBG( errmsg );
-				gdbm_close(gdbm);
-
-				return pw;
-			}
-		}
-		else
-		{
-			/* Did not find user in the cache */
-			errmsg[0] = '\0';
-			sprintf( errmsg, "user [%s] not found in cache", my_user);
-			LOG_DBG( errmsg );
-			gdbm_close( gdbm );
-
-			return NULL;
-		}
-	}
-	else
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "could not open cachefile [%s] for reading", m->ibmdb2cachefile );
-		LOG_ERROR( errmsg );
-
-		return NULL;
-	}
-}
-
-/*
- * function to store the group information in the local cache, so that subsequent
- * http requests can validate the groups directly from local cache without the need
- * to query the backend db2 database.
- */
-
-static int write_group_cache( request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m )
-{
-	char errmsg[MAXERRLEN];
-
-	char ibmdb2grpcachefile[512];
-	char username[MAX_UID_LENGTH+4];
-	char groupname[MAX_GRP_LENGTH];
-
-	int i = 0;
-
-	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
-
-	cached_group_timestamp cgt;
-
-	datum datum_value;
-	datum key_data;
-	datum data_data;
-
-	GDBM_FILE gdbm;
-
-	sprintf( ibmdb2grpcachefile, "%s.grp", m->ibmdb2cachefile );
-
-	if ( !(time(&(cgt.timestamp))) )
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "unable to determine current time (write group cache)");
-		LOG_ERROR( errmsg );
-		return( 1 );
-	}
-
-	while( grplist[i] )
-	{
-		++i;
-	}
-
-	cgt.numgrps = i;
-
-	datum_value.dptr = (void *)&cgt;
-	datum_value.dsize = sizeof(cgt);
-
-	gdbm = gdbm_open( ibmdb2grpcachefile, 0, GDBM_WRCREAT, 00664, NULL );
-
-	if ( gdbm != NULL )
-	{
-		if( gdbm_store( gdbm, datum_user, datum_value, GDBM_REPLACE ) != 0 )
-		{
-			errmsg[0] = '\0';
-			sprintf( errmsg, "unable to store group info for user [%s] in cache", my_user);
-			LOG_DBG( errmsg );
-
-			gdbm_close( gdbm );
-
-	        return( 1 );
-		}
-
-		i = 0;
-
-		while( grplist[i] )
-		{
-			key_data.dptr = NULL;
-            data_data.dptr = NULL;
-
-			username[0] = '\0';
-			sprintf( username, "%s_%d", my_user, i );
-
-			groupname[0] = '\0';
-			strcpy( groupname, grplist[i] );
-
-			key_data.dptr = username;
-			key_data.dsize = strlen(username) + 1;
-
-			data_data.dptr = groupname;
-			data_data.dsize = strlen(groupname) + 1;
-
-			if( gdbm_store( gdbm, key_data, data_data, GDBM_REPLACE ) != 0 )
-			{
-				errmsg[0] = '\0';
-				sprintf( errmsg, "unable to store group [%s] for user [%s] in cache", grplist[i], my_user );
-			    LOG_DBG( errmsg );
-
-			    gdbm_close( gdbm );
-
-			    return( 1 );
-			}
-			else
-			{
-				errmsg[0] = '\0';
-				sprintf( errmsg, "storing user [%s] and group [%s] in cache", my_user, grplist[i] );
-				LOG_DBG( errmsg );
-			}
-
-			++i;
-		}
-
-		gdbm_close( gdbm );
-	}
-	else
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "could not open group cachefile [%s] for writing", ibmdb2grpcachefile );
-		LOG_ERROR( errmsg );
-	}
-
-	return( 0 );
-}
-
-/*
- * function to check in the local cache to check if user is in a group, otherwise
- * we need to query the backend db2 database.
- */
-
-static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
-{
-	char errmsg[MAXERRLEN];
-
-	char ibmdb2grpcachefile[512];
-	char username[MAX_UID_LENGTH+4];
-
-	int i = 0;
-
-	int numgrps;
-
-	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
-
-	cached_group_timestamp cgt;
-	time_t current_time;
-
-	datum datum_value;
-	datum key_data;
-	datum return_data;
-
-	char **list = NULL;
-
-	int MAXAGE = atoi( m->ibmdb2cachelifetime );
-
-	GDBM_FILE gdbm;
-
-	double time_diff;
-
-	sprintf( ibmdb2grpcachefile, "%s.grp", m->ibmdb2cachefile );
-
-	gdbm = gdbm_open( ibmdb2grpcachefile, 0, GDBM_WRCREAT, 00664, NULL );
-
-	if( gdbm != NULL )
-	{
-		datum_value = gdbm_fetch( gdbm, datum_user );
-
-		if( datum_value.dptr != NULL )
-		{
-			if( datum_value.dsize != sizeof(cgt) )
-			{
-				errmsg[0] = '\0';
-				sprintf( errmsg, "we found our user in the cache but with corrupted record: %s \n", my_user);
-				LOG_ERROR( errmsg );
-				gdbm_close( gdbm );
-
-				return NULL;
-			}
-			else
-			{
-				memcpy((void *)&cgt, datum_value.dptr, datum_value.dsize);
-
-				if( !(time(&(current_time))) )
-				{
-					errmsg[0] = '\0';
-					sprintf( errmsg, "unable to determine current time (read group cache)");
-					LOG_ERROR( errmsg );
-					gdbm_close( gdbm );
-
-					return NULL;
-				}
-
-				time_diff = difftime( current_time, cgt.timestamp );
-
-				i = 0;
-
-				numgrps = cgt.numgrps;
-
-				if( MAXAGE < time_diff )
-				{
-					errmsg[0] = '\0';
-					sprintf( errmsg, "cached group information for user [%s] toooo old", my_user);
-					LOG_DBG( errmsg );
-					gdbm_close( gdbm );
-
-					return NULL;
-				}
-
-				/* Build the list to return */
-
-				list = (char **) malloc(sizeof(char *) * (numgrps+1));
-
-				for( i = 0; i < numgrps; i++ )
-				{
-					key_data.dptr = NULL;
-					return_data.dptr = NULL;
-
-					username[0] = '\0';
-					sprintf( username, "%s_%d", my_user, i );
-
-					key_data.dptr = username;
-					key_data.dsize = strlen(username) + 1;
-
-					return_data = gdbm_fetch( gdbm, key_data );
-
-					if( return_data.dptr != 0 )
-					{
-						list[i] = return_data.dptr;
-					}
-				}
-
-				list[i] = NULL;
-
-				/* Congratulations, we have a fresh cached entry */
-				errmsg[0] = '\0';
-				sprintf( errmsg, "groups for user [%s] found in cache", my_user);
-				LOG_DBG( errmsg );
-				gdbm_close(gdbm);
-
-				return list;
-			}
-		}
-		else
-		{
-			/* Did not find user in the group cache */
-			errmsg[0] = '\0';
-			sprintf( errmsg, "groups for user [%s] not found in cache", my_user);
-			LOG_DBG( errmsg );
-			gdbm_close( gdbm );
-
-			return NULL;
-		}
-	}
-	else
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "could not open group cachefile [%s] for reading", ibmdb2grpcachefile );
-		LOG_ERROR( errmsg );
-
-		return NULL;
-	}
-}
 
 /*
  * callback from Apache to do the authentication of the user to his password
