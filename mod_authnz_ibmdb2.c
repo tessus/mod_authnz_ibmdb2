@@ -23,7 +23,7 @@
 
 /* $Id$ */
 
-#define MODULE_RELEASE "mod_authnz_ibmdb2/0.8.1"
+#define MODULE "mod_authnz_ibmdb2/2.2."
 
 #define PCALLOC apr_pcalloc
 #define SNPRINTF apr_snprintf
@@ -66,18 +66,6 @@ static apr_status_t authnz_ibmdb2_cleanup(void *notused)
 
 	return APR_SUCCESS;
 }
-/* }}} */
-
-/* {{{ static apr_status_t authnz_ibmdb2_cleanup_child(void *notused)
-empty function necessary because register_cleanup requires it as one
-of its parameters
-*/
-/*
-static apr_status_t authnz_ibmdb2_cleanup_child(void *notused)
-{
-	return APR_SUCESS;
-}
-*/
 /* }}} */
 
 /* {{{ int validate_pw( const char *sent, const char *real )
@@ -262,8 +250,6 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 	authn_ibmdb2_config_t *m =
 		(authn_ibmdb2_config_t *)PCALLOC(p, sizeof(authn_ibmdb2_config_t));
 
-	m->pool = p;
-
 	if( !m ) return NULL;					// failure to get memory is a bad thing
 
 	// DEFAULT values
@@ -288,75 +274,75 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 static const command_rec authnz_ibmdb2_cmds[] =
 {
 	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2user),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2user),
 	OR_AUTHCFG, "ibmdb2 server user name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2Password", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2passwd),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2passwd),
 	OR_AUTHCFG, "ibmdb2 server user password"),
 
 	AP_INIT_TAKE1("AuthIBMDB2Database", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2DB),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2DB),
 	OR_AUTHCFG, "ibmdb2 database name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserTable", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2pwtable),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2pwtable),
 	OR_AUTHCFG, "ibmdb2 user table name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupTable", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2grptable),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2grptable),
 	OR_AUTHCFG, "ibmdb2 group table name"),
 
 	AP_INIT_TAKE1("AuthIBMDB2NameField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2NameField),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2NameField),
 	OR_AUTHCFG, "ibmdb2 User ID field name within table"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2GroupField),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupField),
 	OR_AUTHCFG, "ibmdb2 Group field name within table"),
 
 	AP_INIT_TAKE1("AuthIBMDB2PasswordField", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2PasswordField),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2PasswordField),
 	OR_AUTHCFG, "ibmdb2 Password field name within table"),
 
 	AP_INIT_FLAG("AuthIBMDB2CryptedPasswords", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2Crypted),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2Crypted),
 	OR_AUTHCFG, "ibmdb2 passwords are stored encrypted if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2KeepAlive", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2KeepAlive),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2KeepAlive),
 	OR_AUTHCFG, "ibmdb2 connection kept open across requests if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2Authoritative", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2Authoritative),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2Authoritative),
 	OR_AUTHCFG, "ibmdb2 lookup is authoritative if On"),
 
 	AP_INIT_FLAG("AuthIBMDB2NoPasswd", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2NoPasswd),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2NoPasswd),
 	OR_AUTHCFG, "If On, only check if user exists; ignore password"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserCondition", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2UserCondition),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2UserCondition),
 	OR_AUTHCFG, "condition to add to user where-clause"),
 
 	AP_INIT_TAKE1("AuthIBMDB2GroupCondition", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2GroupCondition),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupCondition),
 	OR_AUTHCFG, "condition to add to group where-clause"),
 
 	AP_INIT_FLAG("AuthIBMDB2Caching", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2caching),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2caching),
 	OR_AUTHCFG, "If On, user credentials are cached"),
 
 	AP_INIT_FLAG("AuthIBMDB2GroupCaching", ap_set_flag_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2grpcaching),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2grpcaching),
 	OR_AUTHCFG, "If On, group information is cached"),
 
 	AP_INIT_TAKE1("AuthIBMDB2CacheFile", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2cachefile),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2cachefile),
 	OR_AUTHCFG, "cachefile where user credentials are stored"),
 
 	AP_INIT_TAKE1("AuthIBMDB2CacheLifetime", ap_set_string_slot,
-	(void *) APR_XtOffsetOf(authn_ibmdb2_config_t, ibmdb2cachelifetime),
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2cachelifetime),
 	OR_AUTHCFG, "cache lifetime in seconds"),
 
 	{ NULL }
@@ -367,7 +353,26 @@ static const command_rec authnz_ibmdb2_cmds[] =
 */
 static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
-	ap_add_version_component( p, MODULE_RELEASE );
+	char *src, *tgt, *rev;
+	char release[30];
+
+	src = "$Revision$";
+	rev = (char*)malloc(8*sizeof(char));
+	tgt = rev;
+
+	while( *src != ':' )
+		src++;
+	src++; src++;
+
+	while( *src != '$' )
+		*tgt++ = *src++;
+	tgt--;
+	*tgt = 0;
+
+	sprintf( release, "%s%s", MODULE, rev );
+	free(rev);
+
+	ap_add_version_component( p, release );
 
     return OK;
 }
@@ -379,9 +384,9 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 	If user or password not found, returns NULL
 */
 
-/* {{{ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m )
+/* {{{ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
 */
-static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m )
+static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
 {
 	int         rowcount = 0;
 
@@ -562,6 +567,9 @@ static char *get_ibmdb2_pw( request_rec *r, char *user, authn_ibmdb2_config_t *m
 		LOG_ERROR( "query returns more than 1 row -> ooops (forgot pk on username?)" );
 		return NULL;
 	}
+
+	if( rowcount == 0 )
+		return NULL;
 
 	pw = (char *)PSTRDUP(r->pool, passwd.val);
 	return pw;
@@ -830,39 +838,28 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 
 //	callback from Apache to do the authentication of the user to his password
 
-/* {{{ static int ibmdb2_authenticate_basic_user( request_rec *r )
+/* {{{ static int authn_ibmdb2_check_authentication( request_rec *r, const char *user, const char *sent_pw )
 */
-static int ibmdb2_authenticate_basic_user( request_rec *r )
+static authn_status authn_ibmdb2_check_authentication( request_rec *r, const char *user, const char *sent_pw )
 {
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config (r->per_dir_config, &authnz_ibmdb2_module);
 	conn_rec   *c = r->connection;
-	const char *sent_pw, *real_pw;
+	const char *real_pw;
 	int        res;
 	int passwords_match = 0;
-	char *user;
 	char errmsg[MAXERRLEN];
 
-	if( (res = ap_get_basic_auth_pw(r, &sent_pw)) )
-	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "ap_get_basic_auth_pw() returned [%i]; pw=[%s]\nend authenticate", res, sent_pw );
-		LOG_DBG( errmsg );
-
-		return res;
-	}
-
 	errmsg[0] = '\0';
-
-	user = r->user;
 
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
 
 	if( !sec->ibmdb2pwtable )             	// not configured for ibmdb2 authorization
 	{
-		LOG_DBG( "ibmdb2pwtable not set, return DECLINED\nend authenticate" );
+		LOG_DBG( "ibmdb2pwtable not set, return AUTH_DENIED" );
+		LOG_DBG( "end authenticate" );
 
-		return DECLINED;
+		return AUTH_DENIED;
 	}
 
 	// Caching
@@ -873,7 +870,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 		{
 			if( sec->ibmdb2NoPasswd )
 			{
-				return OK;
+				return AUTH_GRANTED;
 			}
 
 			if( sec->ibmdb2Crypted )
@@ -889,7 +886,7 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 		if( passwords_match )
 		{
-			return OK;
+			return AUTH_GRANTED;
 		}
 	}
 
@@ -905,9 +902,10 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 		if( !sec->ibmdb2Authoritative )
 		{
-			LOG_DBG( "ibmdb2Authoritative is Off, return DECLINED\nend authenticate" );
+			LOG_DBG( "ibmdb2Authoritative is Off, return AUTH_DENIED" );
+			LOG_DBG( "end authenticate" );
 
-			return DECLINED;				// let other schemes find user
+			return AUTH_DENIED;				// let other schemes find user
 		}
 
 		errmsg[0] = '\0';
@@ -916,13 +914,13 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 
 		ap_note_basic_auth_failure(r);
 
-    	return HTTP_UNAUTHORIZED;
+    	return AUTH_USER_NOT_FOUND;
 	}
 
 	// if we don't require password, just return ok since they exist
 	if( sec->ibmdb2NoPasswd )
 	{
-		return OK;
+		return AUTH_GRANTED;
 	}
 
 	// validate the password
@@ -944,26 +942,24 @@ static int ibmdb2_authenticate_basic_user( request_rec *r )
 			write_cache( r, user, real_pw, sec );
 		}
 
-		return OK;
+		return AUTH_GRANTED;
 	}
 	else
 	{
-		errmsg[0] = '\0';
-		sprintf( errmsg, "user=[%s] - password mismatch; uri=[%s]", user, r->uri );
-		LOG_ERROR( errmsg );
+		// Error message is generated by Apache
 
 		ap_note_basic_auth_failure(r);
 
-	    return HTTP_UNAUTHORIZED;
+	    return AUTH_DENIED;
 	}
 }
 /* }}} */
 
 //	check if user is member of at least one of the necessary group(s)
 
-/* {{{ static int ibmdb2_check_auth( request_rec *r )
+/* {{{ static int authz_ibmdb2_check_authorisation( request_rec *r )
 */
-static int ibmdb2_check_auth( request_rec *r )
+static int authz_ibmdb2_check_authorisation( request_rec *r )
 {
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config(r->per_dir_config, &authnz_ibmdb2_module);
 
@@ -1054,12 +1050,20 @@ static int ibmdb2_check_auth( request_rec *r )
 }
 /* }}} */
 
+/* {{{ static const authn_provider authn_ibmdb2_provider =
+*/
+static const authn_provider authn_ibmdb2_provider =
+{
+    &authn_ibmdb2_check_authentication,
+};
+/* }}} */
+
 /* {{{ static void register_hooks(apr_pool_t *p)
 */
 static void register_hooks(apr_pool_t *p)
 {
-	ap_hook_check_user_id(ibmdb2_authenticate_basic_user, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_hook_auth_checker(ibmdb2_check_auth, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_register_provider(p, AUTHN_PROVIDER_GROUP, "ibmdb2", "0", &authn_ibmdb2_provider);
+	ap_hook_auth_checker(authz_ibmdb2_check_authorisation, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_post_config(mod_authnz_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 /* }}} */
