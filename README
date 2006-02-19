@@ -62,6 +62,7 @@ Example how to use the module in the httpd.conf:
 <Directory "/var/www/my_test_dir">
     AuthName            "DB2 Authentication"
     AuthType            Basic
+    AuthBasicProvider   ibmdb2
 
     AuthIBMDB2User               db2inst1
     AuthIBMDB2Password           db2inst1
@@ -88,6 +89,8 @@ Example how to use the module in the httpd.conf:
 --------------------
 
 mod_authnz_ibmdb2.c	the Apache module
+mod_authnz_ibmdb2.h	the Apache module's header file
+caching.h		include file for caching mechanism
 md5_crypt.h		include file for validating passwords
 makemod			bash script to compile the module
 README			this file

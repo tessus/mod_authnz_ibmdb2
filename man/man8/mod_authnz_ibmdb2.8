@@ -1,4 +1,4 @@
-.TH mod_authnz_ibmdb2 "8" "February 2006" "mod_authnz_ibmdb2 0.8.1" "Apache module"
+.TH mod_authnz_ibmdb2 "8" "February 2006" "mod_authnz_ibmdb2" "Apache module"
 .SH NAME
 mod_authnz_ibmdb2 \- Apache authentication module for DB2
 .SH DESCRIPTION
@@ -105,13 +105,14 @@ The passwords are stored encrypted and the database connection should not be clo
 With the above assumptions, your httpd.conf should look like this:
 .PP
 .nf
-LoadModule    ibmdb2_auth_module     modules/mod_authnz_ibmdb2.so
+LoadModule    authnz_ibmdb2_module   modules/mod_authnz_ibmdb2.so
 
 Alias         /private               "/data/private/"
 
 <Directory "/data/private">
     AuthName                    "DB2 Authentication for private"
     AuthType                    Basic
+    AuthBasicProvider           ibmdb2 
 
     AuthIBMDB2User              db2user
     AuthIBMDB2Password          db2pwd
@@ -148,6 +149,7 @@ httpd.conf, .htaccess
 Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
+.br
 http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
 .SH "WEB SITE"
 http://mod-auth-ibmdb2.sourceforge.net
