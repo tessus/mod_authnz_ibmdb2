@@ -23,7 +23,7 @@
 
 /* $Id$ */
 
-#define MODULE "mod_authnz_ibmdb2/2.2."
+#define MODULE "mod_authnz_ibmdb2"
 
 #define PCALLOC apr_pcalloc
 #define SNPRINTF apr_snprintf
@@ -369,7 +369,7 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 	tgt--;
 	*tgt = 0;
 
-	sprintf( release, "%s%s", MODULE, rev );
+	sprintf( release, "%s/%s", MODULE, rev );
 	free(rev);
 
 	ap_add_version_component( p, release );

@@ -56,8 +56,6 @@ typedef struct {
 
 //	structure to hold the configuration details for the request
 typedef struct  {
-	apr_pool_t *pool;
-
 	char *ibmdb2user;						// user ID to connect to db server
 	char *ibmdb2passwd;						// password to connect to db server
 	char *ibmdb2DB;							// Database name
