@@ -256,10 +256,11 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 
 	m->ibmdb2NameField     = "username";
 	m->ibmdb2PasswordField = "password";
-	m->ibmdb2Crypted       = 1;              			// passwords are encrypted
-	m->ibmdb2KeepAlive     = 1;             			// keep persistent connection
-	m->ibmdb2Authoritative = 1;              			// we are authoritative source for users
-	m->ibmdb2NoPasswd      = 0;              			// we require password
+	m->ibmdb2GroupField    = "groupname";
+	m->ibmdb2Crypted       = 1;							// passwords are encrypted
+	m->ibmdb2KeepAlive     = 1;							// keep persistent connection
+	m->ibmdb2Authoritative = 1;							// we are authoritative source for users
+	m->ibmdb2NoPasswd      = 0;							// we require password
 	m->ibmdb2caching       = 0;							// user caching is turned off
 	m->ibmdb2grpcaching    = 0;							// group caching is turned off
 	m->ibmdb2cachefile     = "/tmp/auth_cred_cache";	// default cachefile
