@@ -103,6 +103,32 @@ int validate_pw( const char *sent, const char *real )
 }
 /* }}} */
 
+//	function to check the environment/connection handle and to return the sqlca structure
+
+/* {{{ sqlerr_t get_handle_err( SQLSMALLINT htype, SQLHANDLE handle, SQLRETURN rc )
+*/
+sqlerr_t get_handle_err( SQLSMALLINT htype, SQLHANDLE handle, SQLRETURN rc )
+{
+	SQLCHAR message[SQL_MAX_MESSAGE_LENGTH + 1];
+	SQLCHAR SQLSTATE[SQL_SQLSTATE_SIZE + 1];
+	SQLINTEGER sqlcode;
+	SQLSMALLINT length;
+
+	sqlerr_t sqlerr;
+
+	if (rc != SQL_SUCCESS)
+	{
+		SQLGetDiagRec(htype, handle, 1, SQLSTATE, &sqlcode, message, SQL_MAX_MESSAGE_LENGTH + 1, &length);
+
+		strcpy( sqlerr.msg, message );
+		strcpy( sqlerr.state, SQLSTATE );
+		sqlerr.code = sqlcode;
+
+		return sqlerr;
+	}
+}
+/* }}} */
+
 //	function to check the statement handle and to return the sqlca structure
 
 /* {{{ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
@@ -139,12 +165,12 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 */
 SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 {
-
 	char errmsg[MAXERRLEN];
 	char *db  = NULL;
 	char *uid = NULL;
 	char *pwd = NULL;
-	SQLRETURN   sqlrc;
+	sqlerr_t sqlerr;
+	SQLRETURN   sqlrc = SQL_SUCCESS;
 	SQLINTEGER  dead_conn = SQL_CD_TRUE; 	// initialize to 'conn is dead'
 
 	// test the database connection
@@ -164,16 +190,26 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 
 	// allocate an environment handle
 
-	SQLAllocHandle( SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv ) ;
+	sqlrc = SQLAllocHandle( SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv );
+	
+	if( sqlrc != SQL_SUCCESS )
+	{
+		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
+		LOG_DBG( sqlerr.msg );
+	}
 
 	// allocate a connection handle
 
-	if( SQLAllocHandle( SQL_HANDLE_DBC, henv, &hdbc ) != SQL_SUCCESS )
+	sqlrc = SQLAllocHandle( SQL_HANDLE_DBC, henv, &hdbc );
+	
+	if( sqlrc != SQL_SUCCESS )
 	{
+		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
+		LOG_DBG( sqlerr.msg );
 		LOG_ERROR( "IBMDB2 error: cannot allocate a connection handle" );
 		return( SQL_ERROR ) ;
 	}
-
+	
 	// Set AUTOCOMMIT ON (all we are doing are SELECTs)
 
 	if( SQLSetConnectAttr( hdbc, SQL_ATTR_AUTOCOMMIT, ( void * ) SQL_AUTOCOMMIT_ON, SQL_NTS ) != SQL_SUCCESS )
