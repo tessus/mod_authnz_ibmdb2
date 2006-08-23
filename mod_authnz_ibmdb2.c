@@ -118,12 +118,23 @@ sqlerr_t get_handle_err( SQLSMALLINT htype, SQLHANDLE handle, SQLRETURN rc )
 
 	if (rc != SQL_SUCCESS)
 	{
-		SQLGetDiagRec(htype, handle, 1, SQLSTATE, &sqlcode, message, SQL_MAX_MESSAGE_LENGTH + 1, &length);
-
-		strcpy( sqlerr.msg, message );
-		strcpy( sqlerr.state, SQLSTATE );
-		sqlerr.code = sqlcode;
-
+		switch( rc )
+		{
+			case SQL_INVALID_HANDLE:
+				strcpy( sqlerr.msg, "SQL_INVALID_HANDLE" );
+				break;
+			case SQL_SUCCESS_WITH_INFO:
+				strcpy( sqlerr.msg, "SQL_SUCCESS_WITH_INFO" );
+				break;
+			case SQL_ERROR:
+				SQLGetDiagRec(htype, handle, 1, SQLSTATE, &sqlcode, message, SQL_MAX_MESSAGE_LENGTH + 1, &length);
+				strcpy( sqlerr.msg, message );
+				strcpy( sqlerr.state, SQLSTATE );
+				sqlerr.code = sqlcode;
+				break;
+			default:
+				break;
+		}
 		return sqlerr;
 	}
 }
@@ -165,6 +176,7 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 */
 SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 {
+	int rc = 0;
 	char errmsg[MAXERRLEN];
 	char *db  = NULL;
 	char *uid = NULL;
@@ -195,7 +207,9 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	if( sqlrc != SQL_SUCCESS )
 	{
 		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
+		LOG_ERROR( "IBMDB2 error: cannot allocate an environment handle" );
 		LOG_DBG( sqlerr.msg );
+		return( SQL_ERROR );
 	}
 
 	// allocate a connection handle
@@ -205,9 +219,9 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	if( sqlrc != SQL_SUCCESS )
 	{
 		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
-		LOG_DBG( sqlerr.msg );
 		LOG_ERROR( "IBMDB2 error: cannot allocate a connection handle" );
-		return( SQL_ERROR ) ;
+		LOG_DBG( sqlerr.msg );
+		return( SQL_ERROR );
 	}
 	
 	// Set AUTOCOMMIT ON (all we are doing are SELECTs)
@@ -215,7 +229,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	if( SQLSetConnectAttr( hdbc, SQL_ATTR_AUTOCOMMIT, ( void * ) SQL_AUTOCOMMIT_ON, SQL_NTS ) != SQL_SUCCESS )
 	{
 		LOG_ERROR( "IBMDB2 error: cannot set autocommit on" );
-		return( SQL_ERROR ) ;
+		return( SQL_ERROR );
 	}
 
 	// make the database connection
@@ -228,9 +242,9 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	{
 		sprintf( errmsg, "IBMDB2 error: cannot connect to %s", db );
 		LOG_ERROR( errmsg );
-		SQLDisconnect( hdbc ) ;
-		SQLFreeHandle( SQL_HANDLE_DBC, hdbc ) ;
-		return( SQL_ERROR ) ;
+		SQLDisconnect( hdbc );
+		SQLFreeHandle( SQL_HANDLE_DBC, hdbc );
+		return( SQL_ERROR );
 	}
 
 	// ELSE: connection was successful
@@ -261,19 +275,19 @@ SQLRETURN ibmdb2_disconnect( request_rec *r, authn_ibmdb2_config_t *m )
 
 	LOG_DBG( "  keepalive off; disconnect from database" );
 
-	SQLDisconnect( hdbc ) ;
+	SQLDisconnect( hdbc );
 
 	LOG_DBG( "  free connection handle" );
 
 	// free the connection handle
 
-	SQLFreeHandle( SQL_HANDLE_DBC, hdbc ) ;
+	SQLFreeHandle( SQL_HANDLE_DBC, hdbc );
 
 	LOG_DBG( "  free environment handle" );
 
 	// free the environment handle
 
-	SQLFreeHandle( SQL_HANDLE_ENV, henv ) ;
+	SQLFreeHandle( SQL_HANDLE_ENV, henv );
 
 	return( SQL_SUCCESS );
 }
@@ -410,8 +424,8 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 	free(rev);
 
 	ap_add_version_component( p, release );
-
-    return OK;
+	
+	return OK;
 }
 /* }}} */
 
