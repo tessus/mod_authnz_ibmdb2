@@ -1,0 +1,12 @@
+mod_authnz_ibmdb2 1.15
+
+ - added default value for AuthIBMDB2GroupField
+ - added additional debugging code
+
+mod_authnz_ibmdb2 1.11
+
+ - initial release
+
+http://mod-auth-ibmdb2.sourceforge.net
+
+$Id$
