@@ -38,6 +38,7 @@
 #include "sqlcli1.h"
 #include "http_request.h"
 #include "mod_auth.h"
+#include "apr_env.h"
 
 #include "mod_authnz_ibmdb2.h"				// structures, defines, globals
 #include "md5_crypt.h"						// routines for validate_pw function
@@ -406,6 +407,8 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 {
 	char *src, *tgt, *rev;
 	char release[30];
+	char errmsg[MAXERRLEN];
+	char *env;
 
 	src = "$Revision$";
 	rev = (char*)malloc(8*sizeof(char));
@@ -420,10 +423,25 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 	tgt--;
 	*tgt = 0;
 
+	release[0] = '\0';
 	sprintf( release, "%s/%s", MODULE, rev );
 	free(rev);
 
 	ap_add_version_component( p, release );
+	
+	errmsg[0] = '\0';
+	if( apr_env_get( &env, "DB2INSTANCE", p ) != APR_SUCCESS )
+		sprintf( errmsg, "DB2INSTANCE=[%s]", "not set" );
+	else
+		sprintf( errmsg, "DB2INSTANCE=[%s]", env );
+	LOG_DBGS( errmsg );
+	
+	errmsg[0] = '\0';
+	if( apr_env_get( &env, "LD_LIBRARY_PATH", p ) != APR_SUCCESS )
+		sprintf( errmsg, "LD_LIBRARY_PATH=[%s]", "not set" );
+	else
+		sprintf( errmsg, "LD_LIBRARY_PATH=[%s]", env );
+	LOG_DBGS( errmsg );
 	
 	return OK;
 }
@@ -901,7 +919,7 @@ static authn_status authn_ibmdb2_check_authentication( request_rec *r, const cha
 	char errmsg[MAXERRLEN];
 
 	errmsg[0] = '\0';
-
+	
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
 
