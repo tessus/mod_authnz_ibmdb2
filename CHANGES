@@ -1,3 +1,7 @@
+mod_authnz_ibmdb2 1.16
+
+ - fixed bug 1597078
+
 mod_authnz_ibmdb2 1.15
 
  - added default value for AuthIBMDB2GroupField
