@@ -584,6 +584,9 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 			   return NULL;
 			   break;
 			default:
+			   LOG_ERROR( "IBMDB2 error: statement cannot be processed" );
+			   LOG_DBG( sqlerr.msg );
+			   return NULL;
 			   break;
 		}
 	}
@@ -792,6 +795,9 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   return NULL;
 			   break;
 			default:
+			   LOG_ERROR( "IBMDB2 error: statement cannot be processed" );
+			   LOG_DBG( sqlerr.msg );
+			   return NULL;
 			   break;
 		}
 	}
