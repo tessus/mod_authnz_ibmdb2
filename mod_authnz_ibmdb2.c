@@ -380,6 +380,10 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	AP_INIT_TAKE1("AuthIBMDB2GroupCondition", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupCondition),
 	OR_AUTHCFG, "condition to add to group where-clause"),
+	
+	AP_INIT_TAKE1("AuthIBMDB2UserProc", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2UserProc),
+	OR_AUTHCFG, "stored procedure for user authentication"),
 
 	AP_INIT_FLAG("AuthIBMDB2Caching", ap_set_flag_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2caching),
@@ -483,6 +487,117 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 
 		return NULL;
 	}
+	
+	/*
+		If we are using a stored procedure, then some of the other parameters
+		are irrelevant. So process the stored procedure first.
+	*/
+	
+	if( m->ibmdb2UserProc )
+	{
+		// construct SQL statement
+		
+		SNPRINTF( query, sizeof(query)-1, "CALL %s( '%s', ? )",
+			m->ibmdb2UserProc, user );
+			
+		sprintf( errmsg, "    statement=[%s]", query );
+		LOG_DBG( errmsg );
+
+		LOG_DBG( "    allocate a statement handle" );
+
+		// allocate a statement handle
+
+		sqlrc = SQLAllocHandle( SQL_HANDLE_STMT, hdbc, &hstmt ) ;
+
+		LOG_DBG( "    prepare the statement" );
+
+		// prepare the statement
+
+		sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
+		
+		LOG_DBG( "    bind the parameter" );
+		
+		// bind the parameter
+		
+		sqlrc = SQLBindParameter(hstmt,
+							1,
+							SQL_PARAM_OUTPUT,
+							SQL_C_CHAR, SQL_CHAR,
+							0, 0,
+							passwd.val, MAX_PWD_LENGTH,
+							&passwd.ind);
+		
+		LOG_DBG( "    execute the statement" );
+
+		// execute the statement for username
+
+		sqlrc = SQLExecute( hstmt ) ;
+		
+		if( sqlrc != SQL_SUCCESS )				/* check statement */
+		{
+			sqlerr = get_stmt_err( hstmt, sqlrc );
+			errmsg[0] = '\0';
+
+			switch( sqlerr.code )
+			{
+				case -440:						// stored procedure does not exist
+				   sprintf( errmsg, "stored procedure [%s] does not exist", m->ibmdb2UserProc );
+				   LOG_ERROR( errmsg );
+				   LOG_DBG( sqlerr.msg );
+				   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+				   ibmdb2_disconnect( r, m ) ;
+				   return NULL;
+				   break;
+				case 100:						// no data was returned (warning, no error)
+				   LOG_DBG( "    stored procedure returned no data!" );
+				   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+				   ibmdb2_disconnect( r, m ) ;
+				   return NULL;
+				   break;
+				default:
+				   LOG_ERROR( "IBMDB2 error: statement cannot be processed" );
+				   LOG_DBG( sqlerr.msg );
+				   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+				   ibmdb2_disconnect( r, m ) ;
+				   return NULL;
+				   break;
+			}
+			
+			// maybe more error handling later
+		}
+		
+		// if noPassword, checking return value = user -- later
+		
+		if( passwd.ind > 0 )
+		{
+			errmsg[0] = '\0';
+			sprintf( errmsg, "    password from database=[%s]", passwd.val );
+			LOG_DBG( errmsg );
+		}
+				
+		LOG_DBG( "    free statement handle" );
+
+		// free the statement handle
+
+		sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+
+		// disconnect from the data source
+
+		ibmdb2_disconnect( r, m ) ;
+
+		if( passwd.ind > 0 )
+		{
+			LOG_DBG( "end get_ibmdb2_pw()" );
+			pw = (char *)PSTRDUP(r->pool, passwd.val);
+			return pw;
+		}
+		else									// if continue handler was defined in SP
+		{
+			LOG_DBG( "    stored procedure returned no data!" );
+			LOG_DBG( "end get_ibmdb2_pw()" );
+			return NULL;
+		}
+	}
 
 	/*
 		If we are not checking for passwords, there may not be a password field
@@ -523,7 +638,7 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 
 	// prepare the statement
 
-    sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
+	sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
 
 	/* Maybe implemented later - later binding of username
 
@@ -586,6 +701,8 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 			default:
 			   LOG_ERROR( "IBMDB2 error: statement cannot be processed" );
 			   LOG_DBG( sqlerr.msg );
+			   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
 		}
@@ -797,6 +914,8 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			default:
 			   LOG_ERROR( "IBMDB2 error: statement cannot be processed" );
 			   LOG_DBG( sqlerr.msg );
+			   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
 		}
@@ -929,7 +1048,9 @@ static authn_status authn_ibmdb2_check_authentication( request_rec *r, const cha
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
 
-	if( !sec->ibmdb2pwtable )             	// not configured for ibmdb2 authorization
+	// not configured for ibmdb2 authorization
+
+	if( !sec->ibmdb2pwtable && !sec->ibmdb2UserProc )
 	{
 		LOG_DBG( "ibmdb2pwtable not set, return AUTH_DENIED" );
 		LOG_DBG( "end authenticate" );

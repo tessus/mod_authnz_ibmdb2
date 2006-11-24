@@ -71,6 +71,7 @@ typedef struct  {
 	int  ibmdb2NoPasswd;					// do we ignore password?
 	char *ibmdb2UserCondition; 				// Condition to add to the user where-clause in select query
 	char *ibmdb2GroupCondition; 			// Condition to add to the group where-clause in select query
+	char *ibmdb2UserProc;					// stored procedure for user auth
 	int  ibmdb2caching;						// are user credentials cached?
 	int  ibmdb2grpcaching;					// is group information cached?
 	char *ibmdb2cachefile;					// path to cache file
