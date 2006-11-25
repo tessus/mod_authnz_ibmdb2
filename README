@@ -19,9 +19,9 @@ storing user and group information.
 
 Here is a list of the new directives that come with the module:
 
-AuthIBMDB2User 			user for connecting to the DB2 database (no default)
+AuthIBMDB2User			user for connecting to the DB2 database (no default)
 
-AuthIBMDB2Password 		password for connecting to the DB2 database (no default)
+AuthIBMDB2Password		password for connecting to the DB2 database (no default)
 
 AuthIBMDB2Database		database name (no default)
 
@@ -41,11 +41,15 @@ AuthIBMDB2KeepAlive 		connection kept open across requests (defaults to yes)
 
 AuthIBMDB2Authoritative 	lookup is authoritative (defaults to yes) 
 
-AuthIBMDB2NoPasswd 		just check, if user is in usertable (defaults to no)
+AuthIBMDB2NoPasswd		just check, if user is in usertable (defaults to no)
 
 AuthIBMDB2UserCondition		restrict result set (no default)
 
 AuthIBMDB2GroupCondition 	restrict result set (no default)
+
+AuthIBMDB2UserProc		stored procedure for user authentication (no default)
+
+AuthIBMDB2GroupProc		stored procedure for group authentication (no default)
 
 AuthIBMDB2Caching		user credentials are cached (defaults to off)
 
@@ -83,6 +87,31 @@ Example how to use the module in the httpd.conf:
     require                      group admin
     AllowOverride                None
 </Directory>
+
+or
+
+<Directory "/var/www/my_test_dir">
+    AuthName            "DB2 Authentication"
+    AuthType            Basic
+    AuthBasicProvider   ibmdb2
+
+    AuthIBMDB2User               db2inst1
+    AuthIBMDB2Password           db2inst1
+    AuthIBMDB2Database           auth
+    AuthIBMDB2UserProc           user_sp
+    AuthIBMDB2GroupProc          group_sp
+
+    AuthIBMDB2Caching            On
+    AuthIBMDB2GroupCaching       On
+
+    require                      group admin
+    AllowOverride                None
+</Directory>
+
+where the stored procedures must have the following parameter format:
+
+CREATE PROCEDURE user_sp  ( IN VARCHAR, OUT VARCHAR )
+CREATE PROCEDURE group_sp ( IN VARCHAR )
 
 
 2) File descriptions
