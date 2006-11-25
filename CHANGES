@@ -1,3 +1,9 @@
+mod_authnz_ibmdb2 1.xx
+
+ - added support for stored procedures
+ - two new directives: AuthIBMDB2UserProc and AuthIBMDB2GroupProc
+   (see README and documentation)
+
 mod_authnz_ibmdb2 1.16
 
  - fixed bug 1597078
