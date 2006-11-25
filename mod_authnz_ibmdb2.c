@@ -384,6 +384,10 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	AP_INIT_TAKE1("AuthIBMDB2UserProc", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2UserProc),
 	OR_AUTHCFG, "stored procedure for user authentication"),
+	
+	AP_INIT_TAKE1("AuthIBMDB2GroupProc", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupProc),
+	OR_AUTHCFG, "stored procedure for group authentication"),
 
 	AP_INIT_FLAG("AuthIBMDB2Caching", ap_set_flag_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2caching),
@@ -548,6 +552,14 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 				   ibmdb2_disconnect( r, m ) ;
 				   return NULL;
 				   break;
+				case -551:						// no privilege to execute stored procedure
+				   sprintf( errmsg, "user [%s] does not have the privilege to execute stored procedure [%s]", m->ibmdb2user, m->ibmdb2UserProc );
+				   LOG_ERROR( errmsg );
+				   LOG_DBG( sqlerr.msg );
+				   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+				   ibmdb2_disconnect( r, m ) ;
+				   return NULL;
+				   break;
 				case 100:						// no data was returned (warning, no error)
 				   LOG_DBG( "    stored procedure returned no data!" );
 				   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
@@ -562,11 +574,9 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 				   return NULL;
 				   break;
 			}
-			
-			// maybe more error handling later
 		}
 		
-		// if noPassword, checking return value = user -- later
+		// if noPassword, checking return value = user -- implemented later
 		
 		if( passwd.ind > 0 )
 		{
@@ -836,9 +846,19 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
 			user);
 	}
+	
+	if( m->ibmdb2GroupProc )
+	{
+		query[0] = '\0';
+		SNPRINTF( query, sizeof(query)-1, "CALL %s( '%s' )",
+			m->ibmdb2GroupProc, user );
+	}
 
 	errmsg[0] = '\0';
-	sprintf( errmsg, "    query=[%s]", query );
+	if( m->ibmdb2GroupProc )
+		sprintf( errmsg, "    statement=[%s]", query );
+	else
+		sprintf( errmsg, "    query=[%s]", query );
 	LOG_DBG( errmsg );
 
 	LOG_DBG( "    allocate a statement handle" );
@@ -894,8 +914,15 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			   ibmdb2_disconnect( r, m ) ;
 			   return NULL;
 			   break;
-			case -551:						// no privilege to access table
-			   sprintf( errmsg, "user [%s] does not have the privilege to access table [%s]", m->ibmdb2user, m->ibmdb2grptable );
+			case -551:						// no privilege to access table or to execute stored procedure
+			   if( m->ibmdb2GroupProc )
+			   {
+			       sprintf( errmsg, "user [%s] does not have the privilege to execute stored procedure [%s]", m->ibmdb2user, m->ibmdb2GroupProc );
+			   }
+			   else
+			   {
+			       sprintf( errmsg, "user [%s] does not have the privilege to access table [%s]", m->ibmdb2user, m->ibmdb2grptable );
+			   }
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
 			   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
@@ -905,6 +932,14 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			case -10:						// syntax error in group condition [string delimiter]
 			case -104:						// syntax error in group condition [unexpected token]
 			   sprintf( errmsg, "syntax error in group condition [%s]", m->ibmdb2GroupCondition );
+			   LOG_ERROR( errmsg );
+			   LOG_DBG( sqlerr.msg );
+			   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
+			   ibmdb2_disconnect( r, m ) ;
+			   return NULL;
+			   break;
+			case -440:						// stored procedure does not exist
+			   sprintf( errmsg, "stored procedure [%s] does not exist", m->ibmdb2UserProc );
 			   LOG_ERROR( errmsg );
 			   LOG_DBG( sqlerr.msg );
 			   sqlrc = SQLFreeHandle( SQL_HANDLE_STMT, hstmt ) ;
@@ -1183,7 +1218,7 @@ static int authz_ibmdb2_check_authorisation( request_rec *r )
 
 	// if the group table is not specified, use the same as for password
 
-	if( !sec->ibmdb2grptable )
+	if( !sec->ibmdb2grptable && !sec->ibmdb2UserProc )
 	{
 		sec->ibmdb2grptable = sec->ibmdb2pwtable;
 	}
