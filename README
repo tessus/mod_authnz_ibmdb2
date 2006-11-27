@@ -113,6 +113,14 @@ where the stored procedures must have the following parameter format:
 CREATE PROCEDURE user_sp  ( IN VARCHAR, OUT VARCHAR )
 CREATE PROCEDURE group_sp ( IN VARCHAR )
 
+The stored procedure for user authentication must return exact one value -
+the password. If AuthIBMDB2NoPasswd is set to yes, then the username has
+to be returned instead of the passsword.
+
+The stored procedure for group authentication must return an open cursor
+to the resultset.
+
+Two examples are given in the documentation.
 
 2) File descriptions
 --------------------
