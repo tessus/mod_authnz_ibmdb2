@@ -115,7 +115,7 @@ CREATE PROCEDURE group_sp ( IN VARCHAR )
 
 The stored procedure for user authentication must return exact one value -
 the password. If AuthIBMDB2NoPasswd is set to yes, then the username has
-to be returned instead of the passsword.
+to be returned instead of the password.
 
 The stored procedure for group authentication must return an open cursor
 to the resultset.
