@@ -1,4 +1,4 @@
-.TH mod_authnz_ibmdb2 "8" "November 2006" "mod_authnz_ibmdb2" "Apache module"
+.TH mod_authnz_ibmdb2 "8" "December 2006" "mod_authnz_ibmdb2" "Apache module"
 .SH NAME
 mod_authnz_ibmdb2 \- Apache authentication module for DB2
 .SH DESCRIPTION
@@ -67,6 +67,18 @@ Can be used to restrict queries made against the user table. The value should be
 .TP
 \fBAuthIBMDB2GroupCondition\fR \fIgroup_condition\fR
 Can be used to restrict queries made against the group table. The value should be a string that you want to be added to the end of the where-clause when querying the table. For example, if your group table has an "active" field and you only want users to be able to login if that field is 1, you could use a directive like this: AuthIBMDB2GroupCondition active=1
+.TP
+\fBAuthIBMDB2UserProc\fR \fIuser_procedure_name\fR
+If set, the named stored procedure is responsible for returning the password of the user in question to the module. It must return exact one value - the password. If AuthIBMDB2NoPasswd is "On", then the username has to be returned instead of the password. The stored procedure must have the following parameter format:
+.br
+
+CREATE PROCEDURE user_procedure_name ( IN VARCHAR, OUT VARCHAR )
+.TP
+\fBAuthIBMDB2GroupProc\fR \fIgroup_procedure_name\fR
+If set, the named stored procedure is responsible for returning the groups the user in question belongs to. It must return an open cursor to the resultset. The stored procedure must have the following parameter format:
+.br
+
+CREATE PROCEDURE group_procedure_name ( IN VARCHAR )
 .TP
 \fBAuthIBMDB2Caching\fR \fI[On|Off]\fR
 If AuthIBMDB2Caching is "On", the user credentials are cached in a file.

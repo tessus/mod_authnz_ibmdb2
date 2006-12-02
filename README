@@ -31,7 +31,7 @@ AuthIBMDB2GroupTable 		name of the group table (no default)
 
 AuthIBMDB2NameField 		name of the user field within the table (defaults to 'username')
 
-AuthIBMDB2GroupField 		name of the group field within the table (no default)
+AuthIBMDB2GroupField 		name of the group field within the table (defaults to 'groupname')
 
 AuthIBMDB2PasswordField 	name of the password field within the table (defaults to 'password')
 
@@ -120,7 +120,7 @@ to be returned instead of the password.
 The stored procedure for group authentication must return an open cursor
 to the resultset.
 
-Two examples are given in the documentation.
+Two examples for stored procedures are given in the documentation.
 
 2) File descriptions
 --------------------
