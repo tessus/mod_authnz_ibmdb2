@@ -100,6 +100,9 @@ sets the expiration timeout in seconds of the cached elements
 .br
 default value: \fB300\fR
 .SH EXAMPLES
+\fBExample 1:\fR
+.br
+
 Let's say you want to protect \fIhttp://yourserver/private\fR. The database where the users and groups are stored in is \fIauthdb\fR. You want to use the user \fIdb2user\fR and the password \fIdb2pwd\fR to connect to the database. The name of the usertable is \fIdb2user.users\fR and the name of the grouptable is \fIdb2user.groups\fR. The two tables look like this:
 .PP
 .nf
@@ -159,6 +162,64 @@ AuthIBMDB2Authoritative, AuthIBMDB2NoPasswd
 AuthIBMDB2GroupField
 .br
 because the default values are used in the above example.
+.br
+
+\fBExample 2:\fR
+
+In this example we use the same assumptions as in the first example, except that we want to use stored procedures. For our example we add an additional column to the group table:
+.PP
+.nf
+grouptable:
+
+USERNAME                       GROUPNAME                        ACTIVE
+------------------------------ -------------------------------- --------
+.fi
+.PP
+The two stored procedures have the following structure:
+.PP
+.nf
+CREATE PROCEDURE db2user.user_sp
+(IN v_username VARCHAR(128), OUT v_password VARCHAR(128))
+LANGUAGE SQL
+BEGIN
+  SELECT password INTO v_password FROM db2user.users 
+WHERE username = v_username;
+END@
+
+CREATE PROCEDURE db2user.group_sp
+(IN v_username VARCHAR(128))
+LANGUAGE SQL
+DYNAMIC RESULT SETS 1
+BEGIN
+  DECLARE res CURSOR WITH RETURN FOR
+  SELECT groupname FROM db2user.groups 
+  WHERE username = v_username AND active = 1;
+
+  OPEN res;
+END@
+.fi
+.PP
+The stored procedures return the password and the list of groups of the user passed to them. Furthermore we want the user and group information to be cached. The directives in the httpd.conf should then look like this:
+.PP
+.nf
+<Directory "/data/private">
+    AuthName                    "DB2 Authentication for private"
+    AuthType                    Basic
+    AuthBasicProvider           ibmdb2 
+
+    AuthIBMDB2User              db2user
+    AuthIBMDB2Password          db2pwd
+    AuthIBMDB2Database          authdb
+    AuthIBMDB2UserProc          user_sp
+    AuthIBMDB2GroupProc         group_sp
+
+    AuthIBMDB2Caching           On
+    AuthIBMDB2GroupCaching      On
+
+    require                     group admin
+    AllowOverride               None
+</Directory>
+.fi
 .SH FILES
 httpd.conf, .htaccess
 .SH AUTHOR
