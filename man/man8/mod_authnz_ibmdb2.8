@@ -1,4 +1,4 @@
-.TH mod_authnz_ibmdb2 "8" "December 2006" "mod_authnz_ibmdb2" "Apache module"
+.TH mod_authnz_ibmdb2 "8" "January 2007" "mod_authnz_ibmdb2" "Apache module"
 .SH NAME
 mod_authnz_ibmdb2 \- Apache authentication module for DB2
 .SH DESCRIPTION
@@ -103,7 +103,7 @@ default value: \fB300\fR
 \fBExample 1:\fR
 .br
 
-Let's say you want to protect \fIhttp://yourserver/private\fR. The database where the users and groups are stored in is \fIauthdb\fR. You want to use the user \fIdb2user\fR and the password \fIdb2pwd\fR to connect to the database. The name of the usertable is \fIdb2user.users\fR and the name of the grouptable is \fIdb2user.groups\fR. The two tables look like this:
+Let's say you want to protect \fIhttp://yourserver/private\fR. The database where the users and groups are stored in is \fIauthdb\fR. You want to use the user \fIdb2user\fR and the password \fIdb2pwd\fR to connect to the database. The name of the usertable is \fIweb.users\fR and the name of the grouptable is \fIweb.groups\fR. The two tables look like this:
 .PP
 .nf
 usertable:
@@ -134,7 +134,7 @@ Alias         /private               "/data/private/"
     AuthIBMDB2User              db2user
     AuthIBMDB2Password          db2pwd
     AuthIBMDB2Database          authdb
-    AuthIBMDB2UserTable         users
+    AuthIBMDB2UserTable         web.users
     AuthIBMDB2NameField         username
     AuthIBMDB2PasswordField     password
 
@@ -143,7 +143,7 @@ Alias         /private               "/data/private/"
     AuthIBMDB2Authoritative     On
     AuthIBMDB2NoPasswd          Off
 
-    AuthIBMDB2GroupTable        groups
+    AuthIBMDB2GroupTable        web.groups
     AuthIBMDB2GroupField        groupname
 
     require                     group admin
@@ -182,7 +182,7 @@ CREATE PROCEDURE db2user.user_sp
 (IN v_username VARCHAR(128), OUT v_password VARCHAR(128))
 LANGUAGE SQL
 BEGIN
-  SELECT password INTO v_password FROM db2user.users 
+  SELECT password INTO v_password FROM web.users 
 WHERE username = v_username;
 END@
 
@@ -192,7 +192,7 @@ LANGUAGE SQL
 DYNAMIC RESULT SETS 1
 BEGIN
   DECLARE res CURSOR WITH RETURN FOR
-  SELECT groupname FROM db2user.groups 
+  SELECT groupname FROM web.groups 
   WHERE username = v_username AND active = 1;
 
   OPEN res;

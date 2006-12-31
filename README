@@ -69,9 +69,9 @@ Example how to use the module in the httpd.conf:
     AuthBasicProvider   ibmdb2
 
     AuthIBMDB2User               db2inst1
-    AuthIBMDB2Password           db2inst1
+    AuthIBMDB2Password           ibmdb2
     AuthIBMDB2Database           auth
-    AuthIBMDB2UserTable          users
+    AuthIBMDB2UserTable          web.users
     AuthIBMDB2NameField          username
     AuthIBMDB2PasswordField      passwd
 
@@ -80,7 +80,7 @@ Example how to use the module in the httpd.conf:
     AuthIBMDB2Authoritative      On
     AuthIBMDB2NoPasswd           Off
 
-    AuthIBMDB2GroupTable         groups
+    AuthIBMDB2GroupTable         web.groups
     AuthIBMDB2GroupField         groupname
 
     #require                     valid-user
@@ -96,7 +96,7 @@ or
     AuthBasicProvider   ibmdb2
 
     AuthIBMDB2User               db2inst1
-    AuthIBMDB2Password           db2inst1
+    AuthIBMDB2Password           ibmdb2
     AuthIBMDB2Database           auth
     AuthIBMDB2UserProc           user_sp
     AuthIBMDB2GroupProc          group_sp
