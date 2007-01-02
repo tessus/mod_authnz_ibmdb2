@@ -576,12 +576,24 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 			}
 		}
 		
-		// if noPassword, checking return value = user -- implemented later
+		if( m->ibmdb2NoPasswd )
+		{
+			if( strcmp( passwd.val, user ) != 0 )
+			{
+				errmsg[0] = '\0';
+				sprintf( errmsg, "    stored procedure did not return username=[%s]", user );
+				LOG_DBG( errmsg );
+				return NULL;
+			}
+		}
 		
 		if( passwd.ind > 0 )
 		{
 			errmsg[0] = '\0';
-			sprintf( errmsg, "    password from database=[%s]", passwd.val );
+			if( m->ibmdb2NoPasswd )
+				sprintf( errmsg, "    user from database=[%s]", passwd.val );
+			else
+				sprintf( errmsg, "    password from database=[%s]", passwd.val );
 			LOG_DBG( errmsg );
 		}
 				
