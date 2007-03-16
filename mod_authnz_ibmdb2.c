@@ -238,11 +238,15 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	uid = m->ibmdb2user;
 	pwd = m->ibmdb2passwd;
 	db  = m->ibmdb2DB;
-
-	if( SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS ) != SQL_SUCCESS )
+	
+	sqlrc = SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS );
+	
+	if( sqlrc != SQL_SUCCESS )
 	{
+		sqlerr = get_handle_err( SQL_HANDLE_DBC, hdbc, sqlrc );
 		sprintf( errmsg, "IBMDB2 error: cannot connect to %s", db );
 		LOG_ERROR( errmsg );
+		LOG_DBG( sqlerr.msg );
 		SQLDisconnect( hdbc );
 		SQLFreeHandle( SQL_HANDLE_DBC, hdbc );
 		return( SQL_ERROR );
