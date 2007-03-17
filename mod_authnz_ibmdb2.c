@@ -40,8 +40,12 @@
 #include "mod_auth.h"
 #include "apr_env.h"
 
+#include "apr.h"
+#include "apr_md5.h"
+#include "apr_sha1.h"
+#include "apr_strings.h"
+
 #include "mod_authnz_ibmdb2.h"				// structures, defines, globals
-#include "md5_crypt.h"						// routines for validate_pw function
 #include "caching.h"						// functions for caching mechanism
 
 #include <sys/types.h>
@@ -74,30 +78,34 @@ static apr_status_t authnz_ibmdb2_cleanup(void *notused)
 int validate_pw( const char *sent, const char *real )
 {
 	unsigned int i = 0;
-	char *result;
-
-	char ident[80];
-
-	if( real[0] == '$' && strlen(real) > 31)
+	char md5str[33];
+	unsigned char digest[APR_MD5_DIGESTSIZE];
+	apr_md5_ctx_t context;
+	char *r;
+	apr_status_t status;
+	
+	if( strlen( real ) == 32 )
 	{
-		ident[0] = '$';
-		while( real[++i] != '$' && i < strlen(real) )
-		   ident[i] = real[i];
-		ident[i] = '$'; i++; ident[i] = '\0';
+		md5str[0] = '\0';
 
-        result = encode_md5( sent, real, ident );
-
+		apr_md5_init( &context );
+		apr_md5_update( &context, sent, strlen(sent) );
+		apr_md5_final( digest, &context );
+		for( i = 0, r = md5str; i < 16; i++, r += 2 ) 
+		{
+			sprintf( r, "%02x", digest[i] );
+		}
+		*r = '\0';
+		
+		if( apr_strnatcmp( real, md5str ) == 0 )
+			return TRUE;
+		else
+			return FALSE;
 	}
-	else if( strlen( real ) == 32 )
-	{
-		result = md5( (char*)sent );
-	}
-	else
-	{
-		result = crypt( sent, real );
-    }
+	
+	status = apr_password_validate( sent, real );
 
-	if( strcmp( real, result ) == 0 )
+	if( status == APR_SUCCESS )
 	   return TRUE;
 	else
 	   return FALSE;
