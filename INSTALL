@@ -26,7 +26,7 @@ run as root: ./makemod
 DB2PATH=/home/db2inst1/sqllib
 EXTRA_LFLAG="-Wl,-rpath,$DB2PATH/lib"
 
-apxs -c -ldb2 -lcrypt $EXTRA_LFLAG mod_authnz_ibmdb2.c
+apxs -c -ldb2 $EXTRA_LFLAG mod_authnz_ibmdb2.c
 
 If the sqlcli1.h header file cannot be found, add the -I option to specify the
 directory where sqlcli1.h can be found.
@@ -35,7 +35,7 @@ directory where libdb2.so can be found.
 For example:
 
 apxs -c -L/home/db2inst1/sqllib/lib -I/home/db2inst1/sqllib/include -ldb2
- -lcrypt $EXTRA_LFLAG mod_authnz_ibmdb2.c
+ $EXTRA_LFLAG mod_authnz_ibmdb2.c
 
 To move the DSO to the modules directory:
 
