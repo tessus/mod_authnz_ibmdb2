@@ -1,3 +1,9 @@
+mod_authnz_ibmdb2 1.XX
+
+ - changed password validation to use APR
+ - added additional debugging code
+ - changed caching to use APR
+
 mod_authnz_ibmdb2 1.19
 
  - added support for stored procedures
