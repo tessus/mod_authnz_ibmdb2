@@ -27,6 +27,19 @@
 #define CACHING_H
 
 #include <gdbm.h>
+#include "apr_general.h"
+#include "apr_dbm.h"
+#include "apr_time.h"
+
+typedef struct {
+        char   password[MAX_PWD_LENGTH];
+        apr_time_t timestamp;
+} cached_password_timestamp;
+
+typedef struct {
+        int    numgrps;
+        apr_time_t timestamp;
+} cached_group_timestamp;
 
 static int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m );
 static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );
@@ -43,20 +56,24 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 */
 static int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m )
 {
+	apr_status_t rc;
+    apr_pool_t *pool;
+    apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
 
 	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
+	apr_datum_t datum_user = { my_user, (strlen( my_user )+1) };
 
 	cached_password_timestamp cpt;
 
-	datum datum_value;
-	GDBM_FILE gdbm;
+	apr_datum_t datum_value;
 
 	char *my_password = (char *)password;
 	strcpy(cpt.password, my_password);
 
-	if ( !(time(&(cpt.timestamp))) )
+	apr_pool_create( &pool, NULL );
+
+	if( !(cpt.timestamp = apr_time_now()) )
 	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "unable to determine current time (write cache)");
@@ -67,29 +84,37 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 	datum_value.dptr = (void *)&cpt;
 	datum_value.dsize = sizeof(cpt);
 
-	gdbm = gdbm_open( m->ibmdb2cachefile, 0, GDBM_WRCREAT, 00664, NULL );
+	rc = apr_dbm_open(&db, m->ibmdb2cachefile, APR_DBM_RWCREATE, APR_FPROT_UREAD | APR_FPROT_UWRITE, pool);
 
-	if ( gdbm != NULL )
+	if ( rc == APR_SUCCESS )
 	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "storing user [%s] and pass [%s] in cache", my_user, my_password);
 		LOG_DBG( errmsg );
 
-		if( gdbm_store( gdbm, datum_user, datum_value, GDBM_REPLACE ) != 0 )
+		if( (rc = apr_dbm_store(db, datum_user, datum_value)) != APR_SUCCESS )
 		{
 			errmsg[0] = '\0';
 			sprintf( errmsg, "unable to store user [%s] in cache", my_user);
 			LOG_DBG( errmsg );
+			errmsg[0] = '\0';
+			apr_strerror( rc, errmsg, sizeof(errmsg) );
+			LOG_DBG( errmsg );
 		}
 
-		gdbm_close( gdbm );
+		apr_dbm_close( db );
 	}
 	else
 	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "could not open cachefile [%s] for writing", m->ibmdb2cachefile );
 		LOG_ERROR( errmsg );
+		errmsg[0] = '\0';
+		apr_strerror( rc, errmsg, sizeof(errmsg) );
+		LOG_DBG( errmsg );
 	}
+	
+	apr_pool_destroy( pool );
 
 	return( 0 );
 }
@@ -104,38 +129,43 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 */
 static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
 {
+	apr_status_t rc;
+    apr_pool_t *pool;
+    apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
 
 	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
+	apr_datum_t datum_user = { my_user, (strlen( my_user )+1) };
 
 	cached_password_timestamp cpt;
-	time_t current_time;
+	apr_time_t current_time;
 
-	datum datum_value;
+	apr_datum_t datum_value;
 
 	char *pw = NULL;
 
 	int MAXAGE = atoi( m->ibmdb2cachelifetime );
 
-	GDBM_FILE gdbm;
+	apr_time_t time_diff;
+	
+	apr_pool_create( &pool, NULL );
 
-	double time_diff;
+	rc = apr_dbm_open(&db, m->ibmdb2cachefile, APR_DBM_RWCREATE, APR_FPROT_UREAD | APR_FPROT_UWRITE, pool);
 
-	gdbm = gdbm_open( m->ibmdb2cachefile, 0, GDBM_WRCREAT, 00664, NULL );
-
-	if( gdbm != NULL )
+	if( rc == APR_SUCCESS )
 	{
-		datum_value = gdbm_fetch( gdbm, datum_user );
+		rc = apr_dbm_fetch( db, datum_user, &datum_value );
 
-		if( datum_value.dptr != NULL )
+		if( rc == APR_SUCCESS )
 		{
 			if( datum_value.dsize != sizeof(cpt) )
 			{
 				errmsg[0] = '\0';
 				sprintf( errmsg, "we found our user in the cache but with corrupted record: %s \n", my_user);
 				LOG_ERROR( errmsg );
-				gdbm_close( gdbm );
+				
+				apr_dbm_close( db );
+				apr_pool_destroy( pool );
 
 				return NULL;
 			}
@@ -143,24 +173,28 @@ static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t
 			{
 				memcpy((void *)&cpt, datum_value.dptr, datum_value.dsize);
 
-				if( !(time(&(current_time))) )
+				if( !(current_time = apr_time_now()) )
 				{
 					errmsg[0] = '\0';
 					sprintf( errmsg, "unable to determine current time (read cache)");
 					LOG_ERROR( errmsg );
-					gdbm_close( gdbm );
+					
+					apr_dbm_close( db );
+					apr_pool_destroy( pool );
 
 					return NULL;
 				}
 
-				time_diff = difftime( current_time, cpt.timestamp );
+				time_diff = current_time - cpt.timestamp;
 
-				if( MAXAGE < time_diff )
+				if( apr_time_sec(time_diff) > MAXAGE )
 				{
 					errmsg[0] = '\0';
 					sprintf( errmsg, "cached password for user [%s] is toooo old", my_user);
 					LOG_DBG( errmsg );
-					gdbm_close( gdbm );
+					
+					apr_dbm_close( db );
+					apr_pool_destroy( pool );
 
 					return NULL;
 				}
@@ -171,7 +205,9 @@ static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t
 				errmsg[0] = '\0';
 				sprintf( errmsg, "user [%s] - [%s] found in cache", my_user, pw);
 				LOG_DBG( errmsg );
-				gdbm_close(gdbm);
+				
+				apr_dbm_close( db );
+				apr_pool_destroy( pool );
 
 				return pw;
 			}
@@ -182,8 +218,10 @@ static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t
 			errmsg[0] = '\0';
 			sprintf( errmsg, "user [%s] not found in cache", my_user);
 			LOG_DBG( errmsg );
-			gdbm_close( gdbm );
-
+			
+			apr_dbm_close( db );
+			apr_pool_destroy( pool );
+			
 			return NULL;
 		}
 	}
@@ -192,7 +230,11 @@ static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t
 		errmsg[0] = '\0';
 		sprintf( errmsg, "could not open cachefile [%s] for reading", m->ibmdb2cachefile );
 		LOG_ERROR( errmsg );
+		errmsg[0] = '\0';
+		apr_strerror( rc, errmsg, sizeof(errmsg) );
+		LOG_DBG( errmsg );
 
+		apr_pool_destroy( pool );
 		return NULL;
 	}
 }
