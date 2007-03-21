@@ -30,17 +30,6 @@ do
 	fi
 done
 
-# Determine if we are running with 32bit DB2 UDB on Linux AMD64
-EXTRA_C_FLAGS=""
-HARDWAREPLAT=`uname -m`
-if [ "$HARDWAREPLAT" = "x86_64" ]; then
-   # Now test for bit width
-   bitwidth=`LANG=C db2level | awk '/bits/{print $5}'`
-   if [ $bitwidth = "\"32\"" ]; then
-       EXTRA_C_FLAGS="-m32"
-   fi
-fi
-
 # Set extra flags for the linker
 
 if [ "`uname`" = "AIX" ]
@@ -52,7 +41,7 @@ fi
 
 # Build the module
 
-$APXS -c -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 -lcrypt -lgdbm mod_authnz_ibmdb2.c
+$APXS -c -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 mod_authnz_ibmdb2.c
 
 # Moving the module to the apropriate directory
 
