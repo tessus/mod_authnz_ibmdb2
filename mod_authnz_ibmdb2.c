@@ -35,11 +35,12 @@
 #include "http_core.h"
 #include "http_log.h"
 #include "http_protocol.h"
-#include "sqlcli1.h"
 #include "http_request.h"
 #include "mod_auth.h"
-#include "apr_env.h"
 
+#include "sqlcli1.h"
+
+#include "apr_env.h"
 #include "apr.h"
 #include "apr_md5.h"
 #include "apr_sha1.h"
@@ -52,7 +53,6 @@
 #include <sys/file.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <time.h>
 
 module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
