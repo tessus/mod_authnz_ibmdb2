@@ -57,9 +57,10 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 static int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m )
 {
 	apr_status_t rc;
-    apr_pool_t *pool;
-    apr_dbm_t *db;
+	apr_pool_t *pool;
+	apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
+	int rc_write_cache = 0;
 
 	char *my_user = (char *)user;
 	apr_datum_t datum_user = { my_user, (strlen( my_user )+1) };
@@ -71,8 +72,6 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 	char *my_password = (char *)password;
 	strcpy(cpt.password, my_password);
 
-	apr_pool_create( &pool, NULL );
-
 	if( !(cpt.timestamp = apr_time_now()) )
 	{
 		errmsg[0] = '\0';
@@ -83,6 +82,8 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 
 	datum_value.dptr = (void *)&cpt;
 	datum_value.dsize = sizeof(cpt);
+	
+	apr_pool_create( &pool, NULL );
 
 	rc = apr_dbm_open(&db, m->ibmdb2cachefile, APR_DBM_RWCREATE, APR_FPROT_UREAD | APR_FPROT_UWRITE, pool);
 
@@ -100,6 +101,8 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 			errmsg[0] = '\0';
 			apr_strerror( rc, errmsg, sizeof(errmsg) );
 			LOG_DBG( errmsg );
+			
+			rc_write_cache = 1;
 		}
 
 		apr_dbm_close( db );
@@ -112,11 +115,13 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 		errmsg[0] = '\0';
 		apr_strerror( rc, errmsg, sizeof(errmsg) );
 		LOG_DBG( errmsg );
+		
+		rc_write_cache = 1;
 	}
 	
 	apr_pool_destroy( pool );
 
-	return( 0 );
+	return( rc_write_cache );
 }
 /* }}} */
 
@@ -130,8 +135,8 @@ static int write_cache( request_rec *r, const char *user, const char *password, 
 static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
 {
 	apr_status_t rc;
-    apr_pool_t *pool;
-    apr_dbm_t *db;
+	apr_pool_t *pool;
+	apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
 
 	char *my_user = (char *)user;
@@ -250,7 +255,11 @@ static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t
 */
 static int write_group_cache( request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m )
 {
+	apr_status_t rc;
+	apr_pool_t *pool;
+	apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
+	int rc_write_group_cache = 0;
 
 	char ibmdb2grpcachefile[512];
 	char username[MAX_UID_LENGTH+4];
@@ -259,19 +268,17 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
 	int i = 0;
 
 	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
+	apr_datum_t datum_user = { my_user, (strlen( my_user )+1) };
 
 	cached_group_timestamp cgt;
 
-	datum datum_value;
-	datum key_data;
-	datum data_data;
-
-	GDBM_FILE gdbm;
-
+	apr_datum_t datum_value;
+	apr_datum_t key_data;
+	apr_datum_t data_data;
+	
 	sprintf( ibmdb2grpcachefile, "%s.grp", m->ibmdb2cachefile );
 
-	if ( !(time(&(cgt.timestamp))) )
+	if( !(cgt.timestamp = apr_time_now()) )
 	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "unable to determine current time (write group cache)");
@@ -289,18 +296,23 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
 	datum_value.dptr = (void *)&cgt;
 	datum_value.dsize = sizeof(cgt);
 
-	gdbm = gdbm_open( ibmdb2grpcachefile, 0, GDBM_WRCREAT, 00664, NULL );
+	apr_pool_create( &pool, NULL );
+	
+	rc = apr_dbm_open(&db, ibmdb2grpcachefile, APR_DBM_RWCREATE, APR_FPROT_UREAD | APR_FPROT_UWRITE, pool);
 
-	if ( gdbm != NULL )
+	if( rc == APR_SUCCESS )
 	{
-		if( gdbm_store( gdbm, datum_user, datum_value, GDBM_REPLACE ) != 0 )
+		if( (rc = apr_dbm_store(db, datum_user, datum_value)) != APR_SUCCESS )
 		{
 			errmsg[0] = '\0';
 			sprintf( errmsg, "unable to store group info for user [%s] in cache", my_user);
 			LOG_DBG( errmsg );
+			errmsg[0] = '\0';
+			apr_strerror( rc, errmsg, sizeof(errmsg) );
+			LOG_DBG( errmsg );
 
-			gdbm_close( gdbm );
-
+			apr_dbm_close( db );
+			apr_pool_destroy( pool );
 	        return( 1 );
 		}
 
@@ -323,15 +335,18 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
 			data_data.dptr = groupname;
 			data_data.dsize = strlen(groupname) + 1;
 
-			if( gdbm_store( gdbm, key_data, data_data, GDBM_REPLACE ) != 0 )
+			if( (rc = apr_dbm_store(db, key_data, data_data)) != APR_SUCCESS )
 			{
 				errmsg[0] = '\0';
 				sprintf( errmsg, "unable to store group [%s] for user [%s] in cache", grplist[i], my_user );
-			    LOG_DBG( errmsg );
+				LOG_DBG( errmsg );
+				errmsg[0] = '\0';
+				apr_strerror( rc, errmsg, sizeof(errmsg) );
+				LOG_DBG( errmsg );
 
-			    gdbm_close( gdbm );
-
-			    return( 1 );
+				apr_dbm_close( db );
+				apr_pool_destroy( pool );
+				return( 1 );
 			}
 			else
 			{
@@ -343,16 +358,23 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
 			++i;
 		}
 
-		gdbm_close( gdbm );
+		apr_dbm_close( db );
 	}
 	else
 	{
 		errmsg[0] = '\0';
 		sprintf( errmsg, "could not open group cachefile [%s] for writing", ibmdb2grpcachefile );
 		LOG_ERROR( errmsg );
-	}
+		errmsg[0] = '\0';
+		apr_strerror( rc, errmsg, sizeof(errmsg) );
+		LOG_DBG( errmsg );
 
-	return( 0 );
+		rc_write_group_cache = 1;
+	}
+	
+	apr_pool_destroy( pool );
+	
+	return( rc_write_group_cache );
 }
 /* }}} */
 
@@ -365,6 +387,9 @@ static int write_group_cache( request_rec *r, const char *user, const char **grp
 */
 static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m )
 {
+	apr_status_t rc;
+	apr_pool_t *pool;
+	apr_dbm_t *db;
 	char errmsg[MAXERRLEN];
 
 	char ibmdb2grpcachefile[512];
@@ -375,39 +400,41 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 	int numgrps;
 
 	char *my_user = (char *)user;
-	datum datum_user = { my_user, (strlen( my_user )+1) };
+	apr_datum_t datum_user = { my_user, (strlen( my_user )+1) };
 
 	cached_group_timestamp cgt;
-	time_t current_time;
+	apr_time_t current_time;
 
-	datum datum_value;
-	datum key_data;
-	datum return_data;
+	apr_datum_t datum_value;
+	apr_datum_t key_data;
+	apr_datum_t return_data;
 
 	char **list = NULL;
 
 	int MAXAGE = atoi( m->ibmdb2cachelifetime );
 
-	GDBM_FILE gdbm;
-
-	double time_diff;
+	apr_time_t time_diff;
 
 	sprintf( ibmdb2grpcachefile, "%s.grp", m->ibmdb2cachefile );
+	
+	apr_pool_create( &pool, NULL );
 
-	gdbm = gdbm_open( ibmdb2grpcachefile, 0, GDBM_WRCREAT, 00664, NULL );
+	rc = apr_dbm_open(&db, ibmdb2grpcachefile, APR_DBM_RWCREATE, APR_FPROT_UREAD | APR_FPROT_UWRITE, pool);
 
-	if( gdbm != NULL )
+	if( rc == APR_SUCCESS )
 	{
-		datum_value = gdbm_fetch( gdbm, datum_user );
+		rc = apr_dbm_fetch( db, datum_user, &datum_value );
 
-		if( datum_value.dptr != NULL )
+		if( rc == APR_SUCCESS )
 		{
 			if( datum_value.dsize != sizeof(cgt) )
 			{
 				errmsg[0] = '\0';
 				sprintf( errmsg, "we found our user in the cache but with corrupted record: %s \n", my_user);
 				LOG_ERROR( errmsg );
-				gdbm_close( gdbm );
+				
+				apr_dbm_close( db );
+				apr_pool_destroy( pool );
 
 				return NULL;
 			}
@@ -415,28 +442,32 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 			{
 				memcpy((void *)&cgt, datum_value.dptr, datum_value.dsize);
 
-				if( !(time(&(current_time))) )
+				if( !(current_time = apr_time_now()) )
 				{
 					errmsg[0] = '\0';
 					sprintf( errmsg, "unable to determine current time (read group cache)");
 					LOG_ERROR( errmsg );
-					gdbm_close( gdbm );
+					
+					apr_dbm_close( db );
+					apr_pool_destroy( pool );
 
 					return NULL;
 				}
 
-				time_diff = difftime( current_time, cgt.timestamp );
+				time_diff = current_time - cgt.timestamp;
 
 				i = 0;
 
 				numgrps = cgt.numgrps;
 
-				if( MAXAGE < time_diff )
+				if( apr_time_sec(time_diff) > MAXAGE )
 				{
 					errmsg[0] = '\0';
 					sprintf( errmsg, "cached group information for user [%s] toooo old", my_user);
 					LOG_DBG( errmsg );
-					gdbm_close( gdbm );
+					
+					apr_dbm_close( db );
+					apr_pool_destroy( pool );
 
 					return NULL;
 				}
@@ -456,9 +487,9 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 					key_data.dptr = username;
 					key_data.dsize = strlen(username) + 1;
 
-					return_data = gdbm_fetch( gdbm, key_data );
+					rc = apr_dbm_fetch( db, key_data, &return_data );
 
-					if( return_data.dptr != 0 )
+					if( rc == APR_SUCCESS )
 					{
 						list[i] = return_data.dptr;
 					}
@@ -470,7 +501,9 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 				errmsg[0] = '\0';
 				sprintf( errmsg, "groups for user [%s] found in cache", my_user);
 				LOG_DBG( errmsg );
-				gdbm_close(gdbm);
+				
+				apr_dbm_close( db );
+				apr_pool_destroy( pool );
 
 				return list;
 			}
@@ -481,7 +514,9 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 			errmsg[0] = '\0';
 			sprintf( errmsg, "groups for user [%s] not found in cache", my_user);
 			LOG_DBG( errmsg );
-			gdbm_close( gdbm );
+			
+			apr_dbm_close( db );
+			apr_pool_destroy( pool );
 
 			return NULL;
 		}
@@ -491,7 +526,11 @@ static char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_c
 		errmsg[0] = '\0';
 		sprintf( errmsg, "could not open group cachefile [%s] for reading", ibmdb2grpcachefile );
 		LOG_ERROR( errmsg );
+		errmsg[0] = '\0';
+		apr_strerror( rc, errmsg, sizeof(errmsg) );
+		LOG_DBG( errmsg );
 
+		apr_pool_destroy( pool );
 		return NULL;
 	}
 }
