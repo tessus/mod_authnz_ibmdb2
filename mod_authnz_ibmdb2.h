@@ -45,16 +45,6 @@
 #define MAXERRLEN             1024
 
 
-typedef struct {
-        char   password[MAX_PWD_LENGTH];
-        time_t timestamp;
-} cached_password_timestamp;
-
-typedef struct {
-        int    numgrps;
-        time_t timestamp;
-} cached_group_timestamp;
-
 //	structure to hold the configuration details for the request
 typedef struct  {
 	char *ibmdb2user;						// user ID to connect to db server
