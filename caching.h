@@ -26,7 +26,6 @@
 #ifndef CACHING_H
 #define CACHING_H
 
-#include <gdbm.h>
 #include "apr_general.h"
 #include "apr_dbm.h"
 #include "apr_time.h"
