@@ -185,7 +185,6 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 */
 SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 {
-	int rc = 0;
 	char errmsg[MAXERRLEN];
 	char *db  = NULL;
 	char *uid = NULL;
@@ -279,7 +278,6 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 */
 SQLRETURN ibmdb2_disconnect( request_rec *r, authn_ibmdb2_config_t *m )
 {
-
 	if( m->ibmdb2KeepAlive )				// if persisting dbconn, return without disconnecting
 	{
 		LOG_DBG( "  keepalive on; do not disconnect from database" );
