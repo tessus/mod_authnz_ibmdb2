@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | mod_authnz_ibmdb2: structures, defines, globals                      |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2007 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2008 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
@@ -42,7 +42,7 @@
 #define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
 #define LOG_DBGS( msg ) ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, s, "%s", msg )
 #define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
-#define MAXERRLEN             1024
+#define MAXERRLEN				SQL_MAX_MESSAGE_LENGTH + SQL_SQLSTATE_SIZE + 255
 
 
 //	structure to hold the configuration details for the request
