@@ -49,10 +49,12 @@
 #include "mod_authnz_ibmdb2.h"				// structures, defines, globals
 #include "caching.h"						// functions for caching mechanism
 
+#ifndef WIN32
 #include <sys/types.h>
 #include <sys/file.h>
 #include <unistd.h>
 #include <fcntl.h>
+#endif
 
 module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module;
 
@@ -83,7 +85,7 @@ int validate_pw( const char *sent, const char *real )
 	apr_md5_ctx_t context;
 	char *r;
 	apr_status_t status;
-	
+
 	if( strlen( real ) == 32 )
 	{
 		md5str[0] = '\0';
@@ -91,18 +93,18 @@ int validate_pw( const char *sent, const char *real )
 		apr_md5_init( &context );
 		apr_md5_update( &context, sent, strlen(sent) );
 		apr_md5_final( digest, &context );
-		for( i = 0, r = md5str; i < 16; i++, r += 2 ) 
+		for( i = 0, r = md5str; i < 16; i++, r += 2 )
 		{
 			sprintf( r, "%02x", digest[i] );
 		}
 		*r = '\0';
-		
+
 		if( apr_strnatcmp( real, md5str ) == 0 )
 			return TRUE;
 		else
 			return FALSE;
 	}
-	
+
 	status = apr_password_validate( sent, real );
 
 	if( status == APR_SUCCESS )
@@ -138,6 +140,13 @@ sqlerr_t get_handle_err( SQLSMALLINT htype, SQLHANDLE handle, SQLRETURN rc )
 				break;
 			case SQL_ERROR:
 				SQLGetDiagRec(htype, handle, 1, SQLSTATE, &sqlcode, message, SQL_MAX_MESSAGE_LENGTH + 1, &length);
+#ifdef WIN32
+				if (message[length-2] == '\r')
+				{
+					p = &message[length-2];
+					*p = '\0';
+				}
+#endif
 				if (message[length-1] == '\n')	//get rid of the next line character
 				{
 					p = &message[length-1];
@@ -150,8 +159,8 @@ sqlerr_t get_handle_err( SQLSMALLINT htype, SQLHANDLE handle, SQLRETURN rc )
 			default:
 				break;
 		}
-		return sqlerr;
 	}
+	return sqlerr;
 }
 /* }}} */
 
@@ -172,6 +181,13 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 	if (rc != SQL_SUCCESS)
 	{
 		SQLGetDiagRec(SQL_HANDLE_STMT, stmt, 1, SQLSTATE, &sqlcode, message, SQL_MAX_MESSAGE_LENGTH + 1, &length);
+#ifdef WIN32
+		if (message[length-2] == '\r')
+		{
+			p = &message[length-2];
+			*p = '\0';
+		}
+#endif
 		if (message[length-1] == '\n')	//get rid of the next line character
 		{
 			p = &message[length-1];
@@ -180,9 +196,8 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 		strcpy( sqlerr.msg, message );
 		strcpy( sqlerr.state, SQLSTATE );
 		sqlerr.code = sqlcode;
-
-		return sqlerr;
 	}
+	return sqlerr;
 }
 /* }}} */
 
@@ -222,7 +237,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	// allocate an environment handle
 
 	sqlrc = SQLAllocHandle( SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv );
-	
+
 	if( sqlrc != SQL_SUCCESS )
 	{
 		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
@@ -234,7 +249,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	// allocate a connection handle
 
 	sqlrc = SQLAllocHandle( SQL_HANDLE_DBC, henv, &hdbc );
-	
+
 	if( sqlrc != SQL_SUCCESS )
 	{
 		sqlerr = get_handle_err( SQL_HANDLE_ENV, henv, sqlrc );
@@ -242,7 +257,7 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 		LOG_DBG( sqlerr.msg );
 		return( SQL_ERROR );
 	}
-	
+
 	// Set AUTOCOMMIT ON (all we are doing are SELECTs)
 
 	if( SQLSetConnectAttr( hdbc, SQL_ATTR_AUTOCOMMIT, ( void * ) SQL_AUTOCOMMIT_ON, SQL_NTS ) != SQL_SUCCESS )
@@ -256,9 +271,9 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	uid = m->ibmdb2user;
 	pwd = m->ibmdb2passwd;
 	db  = m->ibmdb2DB;
-	
+
 	sqlrc = SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS );
-	
+
 	if( sqlrc != SQL_SUCCESS )
 	{
 		sqlerr = get_handle_err( SQL_HANDLE_DBC, hdbc, sqlrc );
@@ -401,11 +416,11 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	AP_INIT_TAKE1("AuthIBMDB2GroupCondition", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupCondition),
 	OR_AUTHCFG, "condition to add to group where-clause"),
-	
+
 	AP_INIT_TAKE1("AuthIBMDB2UserProc", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2UserProc),
 	OR_AUTHCFG, "stored procedure for user authentication"),
-	
+
 	AP_INIT_TAKE1("AuthIBMDB2GroupProc", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2GroupProc),
 	OR_AUTHCFG, "stored procedure for group authentication"),
@@ -456,25 +471,25 @@ static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_
 	*tgt = 0;
 
 	release[0] = '\0';
-	snprintf( release, sizeof(release), "%s/%s", MODULE, rev );
+	SNPRINTF( release, sizeof(release), "%s/%s", MODULE, rev );
 	free(rev);
 
 	ap_add_version_component( p, release );
-	
+
 	errmsg[0] = '\0';
 	if( apr_env_get( &env, "DB2INSTANCE", p ) != APR_SUCCESS )
 		sprintf( errmsg, "DB2INSTANCE=[%s]", "not set" );
 	else
 		sprintf( errmsg, "DB2INSTANCE=[%s]", env );
 	LOG_DBGS( errmsg );
-	
+
 	errmsg[0] = '\0';
 	if( apr_env_get( &env, "LD_LIBRARY_PATH", p ) != APR_SUCCESS )
 		sprintf( errmsg, "LD_LIBRARY_PATH=[%s]", "not set" );
 	else
 		sprintf( errmsg, "LD_LIBRARY_PATH=[%s]", env );
 	LOG_DBGS( errmsg );
-	
+
 	return OK;
 }
 /* }}} */
@@ -515,19 +530,19 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 
 		return NULL;
 	}
-	
+
 	/*
 		If we are using a stored procedure, then some of the other parameters
 		are irrelevant. So process the stored procedure first.
 	*/
-	
+
 	if( m->ibmdb2UserProc )
 	{
 		// construct SQL statement
-		
+
 		SNPRINTF( query, sizeof(query)-1, "CALL %s( '%s', ? )",
 			m->ibmdb2UserProc, user );
-			
+
 		sprintf( errmsg, "    statement=[%s]", query );
 		LOG_DBG( errmsg );
 
@@ -542,11 +557,11 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 		// prepare the statement
 
 		sqlrc = SQLPrepare( hstmt, query, SQL_NTS ) ;
-		
+
 		LOG_DBG( "    bind the parameter" );
-		
+
 		// bind the parameter
-		
+
 		sqlrc = SQLBindParameter(hstmt,
 							1,
 							SQL_PARAM_OUTPUT,
@@ -554,13 +569,13 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 							0, 0,
 							passwd.val, MAX_PWD_LENGTH,
 							&passwd.ind);
-		
+
 		LOG_DBG( "    execute the statement" );
 
 		// execute the statement for username
 
 		sqlrc = SQLExecute( hstmt ) ;
-		
+
 		if( sqlrc != SQL_SUCCESS )				/* check statement */
 		{
 			sqlerr = get_stmt_err( hstmt, sqlrc );
@@ -599,7 +614,7 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 				   break;
 			}
 		}
-		
+
 		if( m->ibmdb2NoPasswd )
 		{
 			if( strcmp( passwd.val, user ) != 0 )
@@ -610,7 +625,7 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 				return NULL;
 			}
 		}
-		
+
 		if( passwd.ind > 0 )
 		{
 			errmsg[0] = '\0';
@@ -620,7 +635,7 @@ static char *get_ibmdb2_pw( request_rec *r, const char *user, authn_ibmdb2_confi
 				sprintf( errmsg, "    password from database=[%s]", passwd.val );
 			LOG_DBG( errmsg );
 		}
-				
+
 		LOG_DBG( "    free statement handle" );
 
 		// free the statement handle
@@ -882,7 +897,7 @@ static char **get_ibmdb2_groups( request_rec *r, char *user, authn_ibmdb2_config
 			m->ibmdb2GroupField, m->ibmdb2grptable, m->ibmdb2NameField,
 			user);
 	}
-	
+
 	if( m->ibmdb2GroupProc )
 	{
 		query[0] = '\0';
@@ -1110,12 +1125,11 @@ static authn_status authn_ibmdb2_check_authentication( request_rec *r, const cha
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config (r->per_dir_config, &authnz_ibmdb2_module);
 	conn_rec   *c = r->connection;
 	const char *real_pw;
-	int        res;
 	int passwords_match = 0;
 	char errmsg[MAXERRLEN];
 
 	errmsg[0] = '\0';
-	
+
 	sprintf( errmsg, "begin authenticate for user=[%s], uri=[%s]", user, r->uri );
 	LOG_DBG( errmsg );
 
