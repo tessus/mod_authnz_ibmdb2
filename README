@@ -1,6 +1,6 @@
 $Id$
 
-Copyright (c) 2006-2007 Helmut K. C. Tessarek
+Copyright (c) 2006-2008 Helmut K. C. Tessarek
 written by Helmut K. C. Tessarek
 
 http://mod-auth-ibmdb2.sourceforge.net
@@ -129,6 +129,7 @@ mod_authnz_ibmdb2.c	the Apache module
 mod_authnz_ibmdb2.h	the Apache module's header file
 caching.h		include file for caching mechanism
 makemod			bash script to compile the module
+makemod.bat		script to compile the module under win32
 README			this file
 INSTALL			compiling and installing instructions
 CHANGES			change log
