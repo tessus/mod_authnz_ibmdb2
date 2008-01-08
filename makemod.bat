@@ -37,7 +37,7 @@ set LIB=%LIB%;%APACHE_LIB%
 set LIBS=libhttpd.lib libapr-1.lib libaprutil-1.lib "%DB2PATH%\lib\db2cli.lib"
 
 
-%CC% %CFLAGS% -DAPACHE2 -c mod_authnz_ibmdb2.c
+%CC% %CFLAGS% -c mod_authnz_ibmdb2.c
 
 %CC% %CFLAGS% -LD %LIBS% mod_authnz_ibmdb2.obj -Fe%OUT%
 
