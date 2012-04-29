@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | mod_authnz_ibmdb2: authentication using an IBM DB2 database          |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2008 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2012 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
@@ -212,9 +212,12 @@ sqlerr_t get_stmt_err( SQLHANDLE stmt, SQLRETURN rc )
 SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 {
 	char errmsg[MAXERRLEN];
+	char dsn[MAX_DSN_LENGTH];
 	char *db  = NULL;
 	char *uid = NULL;
 	char *pwd = NULL;
+	char *host = NULL;
+	int port = 0;
 	sqlerr_t sqlerr;
 	SQLRETURN   sqlrc = SQL_SUCCESS;
 	SQLINTEGER  dead_conn = SQL_CD_TRUE; 	// initialize to 'conn is dead'
@@ -271,8 +274,23 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	uid = m->ibmdb2user;
 	pwd = m->ibmdb2passwd;
 	db  = m->ibmdb2DB;
-
-	sqlrc = SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS );
+	
+	host = m->ibmdb2host;
+	port = m->ibmdb2port;
+	
+	if( !host || (strcmp(host, "NULL") == 0)  )
+	{
+		sqlrc = SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS );
+	} 
+	else
+	{
+		// use SQLDriver
+		SNPRINTF( dsn, sizeof(dsn), "Driver={IBM DB2 ODBC DRIVER};Database=%s;Hostname=%s;Port=%d; Protocol=TCPIP;Uid=%s;Pwd=%s;", db, host, port, uid, pwd );
+		// dsnstring has to be as follows:
+		// Driver={IBM DB2 ODBC DRIVER};Database=myDataBase;Hostname=myServerAddress;Port=1234; Protocol=TCPIP;Uid=myUsername;Pwd=myPassword;
+		// char* dsnstring;
+		sqlrc = SQLDriverConnect(hdbc, (SQLHWND)NULL, (SQLCHAR*)dsn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT ); 
+	}
 
 	if( sqlrc != SQL_SUCCESS )
 	{
@@ -350,6 +368,7 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 	m->ibmdb2NoPasswd      = 0;							// we require password
 	m->ibmdb2caching       = 0;							// user caching is turned off
 	m->ibmdb2grpcaching    = 0;							// group caching is turned off
+	m->ibmdb2port          = 50000;                     // default instance port number
 	m->ibmdb2cachefile     = "/tmp/auth_cred_cache";	// default cachefile
 	m->ibmdb2cachelifetime = "300";						// cache expires in 300 seconds (5 minutes)
 
@@ -372,6 +391,14 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	AP_INIT_TAKE1("AuthIBMDB2Database", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2DB),
 	OR_AUTHCFG, "ibmdb2 database name"),
+	
+	AP_INIT_TAKE1("AuthIBMDB2Hostname", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2host),
+	OR_AUTHCFG, "ibmdb2 database server hostname"),
+	
+	AP_INIT_TAKE1("AuthIBMDB2Portnumber", ap_set_int_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2port),
+	OR_AUTHCFG, "ibmdb2 database instance port"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserTable", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2pwtable),
