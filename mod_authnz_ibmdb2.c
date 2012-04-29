@@ -278,18 +278,16 @@ SQLRETURN ibmdb2_connect( request_rec *r, authn_ibmdb2_config_t *m )
 	host = m->ibmdb2host;
 	port = m->ibmdb2port;
 	
-	if( !host || (strcmp(host, "NULL") == 0)  )
+	if( !host || (strcmp(host, "NULL") == 0) ) // if hostname not set or not string 'NULL', assume a cataloged database
 	{
 		sqlrc = SQLConnect( hdbc, db, SQL_NTS, uid, SQL_NTS, pwd, SQL_NTS );
+		LOG_DBG( "  SQLConnect" );
 	} 
 	else
 	{
-		// use SQLDriver
 		SNPRINTF( dsn, sizeof(dsn), "Driver={IBM DB2 ODBC DRIVER};Database=%s;Hostname=%s;Port=%d; Protocol=TCPIP;Uid=%s;Pwd=%s;", db, host, port, uid, pwd );
-		// dsnstring has to be as follows:
-		// Driver={IBM DB2 ODBC DRIVER};Database=myDataBase;Hostname=myServerAddress;Port=1234; Protocol=TCPIP;Uid=myUsername;Pwd=myPassword;
-		// char* dsnstring;
-		sqlrc = SQLDriverConnect(hdbc, (SQLHWND)NULL, (SQLCHAR*)dsn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT ); 
+		sqlrc = SQLDriverConnect(hdbc, (SQLHWND)NULL, (SQLCHAR*)dsn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT );
+		LOG_DBG( "  SQLDriverConnect" ); 
 	}
 
 	if( sqlrc != SQL_SUCCESS )
