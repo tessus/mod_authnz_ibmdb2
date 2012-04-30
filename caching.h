@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | caching: functions for caching mechanism                             |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2007 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2012 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
@@ -30,6 +30,7 @@
 #include "apr_dbm.h"
 #include "apr_time.h"
 
+
 typedef struct {
         char   password[MAX_PWD_LENGTH];
         apr_time_t timestamp;
@@ -39,6 +40,7 @@ typedef struct {
         int    numgrps;
         apr_time_t timestamp;
 } cached_group_timestamp;
+
 
 static int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m );
 static char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );

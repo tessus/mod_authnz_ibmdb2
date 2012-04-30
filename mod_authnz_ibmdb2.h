@@ -33,6 +33,10 @@
 #define TRUE (!FALSE)
 #endif
 
+#if AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER == 4
+	#define APACHE24
+#endif
+
 #define MAX_IBMDB2_UID_LENGTH   18
 #define MAX_IBMDB2_PWD_LENGTH   30
 #define MAX_UID_LENGTH          32

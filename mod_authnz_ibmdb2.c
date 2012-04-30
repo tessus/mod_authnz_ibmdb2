@@ -1263,9 +1263,77 @@ static authn_status authn_ibmdb2_check_authentication( request_rec *r, const cha
 
 //	check if user is member of at least one of the necessary group(s)
 
-/* {{{ static int authz_ibmdb2_check_authorisation( request_rec *r )
+#if defined(APACHE24)
+/* {{{ static authz_status authz_ibmdb2_check_authorization( request_rec *r, const char *require_args, const void *parsed_require_args )
 */
-static int authz_ibmdb2_check_authorisation( request_rec *r )
+static authz_status authz_ibmdb2_check_authorization( request_rec *r, const char *require_args, const void *parsed_require_args )
+{
+	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config(r->per_dir_config, &authnz_ibmdb2_module);
+
+	char errmsg[MAXERRLEN];
+
+	char *user = r->user;
+	
+    const char *t;
+    char *want;
+
+	register int x;
+	char **groups = NULL;
+	
+	if (!user) 
+	{
+        return AUTHZ_DENIED_NO_USER;
+    }
+
+	// if the group table is not specified, use the same as for password
+	if( !sec->ibmdb2grptable && !sec->ibmdb2UserProc )
+	{
+		sec->ibmdb2grptable = sec->ibmdb2pwtable;
+	}
+
+	if( !(groups = get_ibmdb2_groups(r, user, sec)) )
+	{
+		errmsg[0] = '\0';
+		if( sec->ibmdb2GroupProc )
+		{
+			sprintf( errmsg, "user [%s] not returned from SP [%s]; uri=[%s]", user, sec->ibmdb2GroupProc, r->uri );
+		}
+		else
+		{
+			sprintf( errmsg, "user [%s] not in group table [%s]; uri=[%s]", user, sec->ibmdb2grptable, r->uri );
+		}
+		LOG_DBG( errmsg );
+
+		return AUTHZ_DENIED;
+	}
+
+    t = require_args;
+    while ((want = ap_getword_conf(r->pool, &t)) && want[0]) 
+    {
+    	int i = 0;
+ 
+		// compare against each group to which this user belongs
+		while( groups[i] )
+		{
+			// last element is NULL
+			if( !strcmp(groups[i],want) )
+				return AUTHZ_GRANTED;			// we found the user!
+
+			++i;
+		}    
+    }
+
+	errmsg[0] = '\0';
+	sprintf( errmsg, "user [%s] not in right group; uri=[%s]", user, r->uri );
+	LOG_ERROR( errmsg );
+
+	return AUTHZ_DENIED;
+}
+/* }}} */
+#else
+/* {{{ static int authz_ibmdb2_check_authorization( request_rec *r )
+*/
+static int authz_ibmdb2_check_authorization( request_rec *r )
 {
 	authn_ibmdb2_config_t *sec = (authn_ibmdb2_config_t *)ap_get_module_config(r->per_dir_config, &authnz_ibmdb2_module);
 
@@ -1315,7 +1383,14 @@ static int authz_ibmdb2_check_authorisation( request_rec *r )
 			if( !groups && !(groups = get_ibmdb2_groups(r, user, sec)) )
 			{
 				errmsg[0] = '\0';
-				sprintf( errmsg, "user [%s] not in group table [%s]; uri=[%s]", user, sec->ibmdb2grptable, r->uri );
+				if( sec->ibmdb2GroupProc )
+				{
+					sprintf( errmsg, "user [%s] not returned from SP [%s]; uri=[%s]", user, sec->ibmdb2GroupProc, r->uri );
+				}
+				else
+				{
+					sprintf( errmsg, "user [%s] not in group table [%s]; uri=[%s]", user, sec->ibmdb2grptable, r->uri );
+				}
 				LOG_DBG( errmsg );
 
 				ap_note_basic_auth_failure(r);
@@ -1355,6 +1430,7 @@ static int authz_ibmdb2_check_authorisation( request_rec *r )
 	return DECLINED;
 }
 /* }}} */
+#endif
 
 /* {{{ static const authn_provider authn_ibmdb2_provider =
 */
@@ -1364,19 +1440,43 @@ static const authn_provider authn_ibmdb2_provider =
 };
 /* }}} */
 
+#if defined(APACHE24)
+/* {{{ static const authz_provider authz_ibmdb2_provider =
+*/
+static const authz_provider authz_ibmdb2_provider ={    &authz_ibmdb2_check_authorization,    NULL,};
+/* }}} */
+#endif
+
 /* {{{ static void register_hooks(apr_pool_t *p)
 */
 static void register_hooks(apr_pool_t *p)
 {
+#if defined(APACHE24)
+	ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "ibmdb2", 
+	                          AUTHN_PROVIDER_VERSION,
+	                          &authn_ibmdb2_provider,
+	                          AP_AUTH_INTERNAL_PER_CONF);
+	ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "group", 
+	                          AUTHZ_PROVIDER_VERSION,
+	                          &authz_ibmdb2_provider,
+	                          AP_AUTH_INTERNAL_PER_CONF);
+#else
 	ap_register_provider(p, AUTHN_PROVIDER_GROUP, "ibmdb2", "0", &authn_ibmdb2_provider);
-	ap_hook_auth_checker(authz_ibmdb2_check_authorisation, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_auth_checker(authz_ibmdb2_check_authorization, NULL, NULL, APR_HOOK_MIDDLE);
+#endif
 	ap_hook_post_config(mod_authnz_ibmdb2_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 /* }}} */
 
+#if defined(APACHE24)
+/* {{{ AP_DECLARE_MODULE(authnz_ibmdb2) =
+*/
+AP_DECLARE_MODULE(authnz_ibmdb2) =
+#else
 /* {{{ module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module =
 */
 module AP_MODULE_DECLARE_DATA authnz_ibmdb2_module =
+#endif
 {
 	STANDARD20_MODULE_STUFF,
 	create_authnz_ibmdb2_dir_config,		// dir config creater
