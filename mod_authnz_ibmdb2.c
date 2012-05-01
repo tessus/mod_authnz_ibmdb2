@@ -378,14 +378,6 @@ static void *create_authnz_ibmdb2_dir_config( apr_pool_t *p, char *d )
 */
 static const command_rec authnz_ibmdb2_cmds[] =
 {
-	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
-	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2user),
-	OR_AUTHCFG, "ibmdb2 server user name"),
-
-	AP_INIT_TAKE1("AuthIBMDB2Password", ap_set_string_slot,
-	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2passwd),
-	OR_AUTHCFG, "ibmdb2 server user password"),
-
 	AP_INIT_TAKE1("AuthIBMDB2Database", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2DB),
 	OR_AUTHCFG, "ibmdb2 database name"),
@@ -397,6 +389,14 @@ static const command_rec authnz_ibmdb2_cmds[] =
 	AP_INIT_TAKE1("AuthIBMDB2Portnumber", ap_set_int_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2port),
 	OR_AUTHCFG, "ibmdb2 database instance port"),
+
+	AP_INIT_TAKE1("AuthIBMDB2User", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2user),
+	OR_AUTHCFG, "ibmdb2 server user name"),
+
+	AP_INIT_TAKE1("AuthIBMDB2Password", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2passwd),
+	OR_AUTHCFG, "ibmdb2 server user password"),
 
 	AP_INIT_TAKE1("AuthIBMDB2UserTable", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2pwtable),
