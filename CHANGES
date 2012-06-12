@@ -1,3 +1,9 @@
+mod_authnz_ibmdb2 2.2
+
+ - compatibility with Apache 2.4.x
+ - two new directives to allow connects to uncataloged databases
+   AuthIBMDB2Hostname and AuthIBMDB2Portnumber (see README and documentation)
+
 mod_authnz_ibmdb2 1.26
 
  - got rid of the newline character in SQL error messages
