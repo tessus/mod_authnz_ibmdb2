@@ -1,3 +1,7 @@
+mod_authnz_ibmdb2 2.2.1
+
+ - validate also glibc2 crypt hashes
+
 mod_authnz_ibmdb2 2.2
 
  - compatibility with Apache 2.4.x
