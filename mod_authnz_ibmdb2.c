@@ -24,6 +24,7 @@
 /* $Id$ */
 
 #define MODULE "mod_authnz_ibmdb2"
+#define RELEASE "2.2.1"
 
 #define PCALLOC apr_pcalloc
 #define SNPRINTF apr_snprintf
@@ -83,10 +84,10 @@ int validate_pw( const char *sent, const char *real )
 	char md5str[33];
 	unsigned char digest[APR_MD5_DIGESTSIZE];
 	apr_md5_ctx_t context;
-	char *r;
+	char *r, *result;
 	apr_status_t status;
 
-	if( strlen( real ) == 32 )
+	if( (strlen( real ) == 32) && (real[0] != '$') )
 	{
 		md5str[0] = '\0';
 
@@ -108,9 +109,16 @@ int validate_pw( const char *sent, const char *real )
 	status = apr_password_validate( sent, real );
 
 	if( status == APR_SUCCESS )
-	   return TRUE;
+		return TRUE;
 	else
-	   return FALSE;
+	{
+		// maybe a different encrypted password (glibc2 crypt)?
+		result = crypt( sent, real );
+		if( strcmp( real, result ) == 0 )
+			return TRUE;
+		else
+			return FALSE;
+	}
 }
 /* }}} */
 
@@ -474,30 +482,12 @@ static const command_rec authnz_ibmdb2_cmds[] =
 */
 static int mod_authnz_ibmdb2_init_handler( apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s )
 {
-	char *src, *tgt, *rev;
 	char release[40];
 	char errmsg[MAXERRLEN];
 	char *env;
-	int srclen = 0, i = 0;
-
-	src = "$Revision$";
-	srclen = strlen(src);
-	rev = (char*)malloc(srclen*sizeof(char));
-	tgt = rev;
-
-	while( *src != ':' && i < srclen )
-		src++; i++;
-	if( *src == ':' )
-		src++; src++;
-
-	while( *src != '$' && i < srclen )
-		*tgt++ = *src++; i++;
-	tgt--;
-	*tgt = 0;
 
 	release[0] = '\0';
-	SNPRINTF( release, sizeof(release), "%s/%s", MODULE, rev );
-	free(rev);
+	SNPRINTF( release, sizeof(release), "%s/%s", MODULE, RELEASE );
 
 	ap_add_version_component( p, release );
 
@@ -1443,7 +1433,11 @@ static const authn_provider authn_ibmdb2_provider =
 #if defined(APACHE24)
 /* {{{ static const authz_provider authz_ibmdb2_provider =
 */
-static const authz_provider authz_ibmdb2_provider ={    &authz_ibmdb2_check_authorization,    NULL,};
+static const authz_provider authz_ibmdb2_provider =
+{
+    &authz_ibmdb2_check_authorization,
+    NULL,
+};
 /* }}} */
 #endif
 
