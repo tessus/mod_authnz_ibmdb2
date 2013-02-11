@@ -1,6 +1,6 @@
-.TH apr_sha1 "8" "June 2012" "apr_sha1" "DB2 User Defined Function and Stored Procedure"
+.TH apr_sha1 "8" "February 2013" "apr_sha1" "DB2 User Defined Function and Stored Procedure"
 .SH NAME
-apr_sha1 \- DB2 UDF and SP for encrypting passwords
+apr_sha1 \- DB2 UDF and SP to generate an SHA1 hash
 .SH SYNOPSIS
 >>-APR_SHA1--(--expression--)----------------------------------><
 .PP
@@ -12,7 +12,8 @@ The argument can be a character string that is either a CHAR or VARCHAR not exce
 .PP
 The result of the function is CHAR(33). The result can be null; if the argument is null, the result is the null value.
 .SH EXAMPLES
-1)
+\fBExample 1:\fR
+
 .br
 Inserting the user \fItest\fR and the sha1 crypted clear text \fItestpwd\fR to the table \fIusers\fR.
 .PP
@@ -21,7 +22,8 @@ INSERT INTO USERS (username, password)
   VALUES ('test', apr_sha1('testpwd'))
 .fi
 .PP
-2)
+\fBExample 2:\fR
+
 .br
 .nf
 SELECT apr_sha1('testpwd') FROM SYSIBM.SYSDUMMY1
@@ -33,7 +35,8 @@ SELECT apr_sha1('testpwd') FROM SYSIBM.SYSDUMMY1
   1 record(s) selected.
 .fi
 .PP
-3)
+\fBExample 3:\fR
+
 .br
 .nf
 CALL apr_sha1('testpwd', ?)
@@ -50,6 +53,6 @@ Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
 .br
-http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
+http://sourceforge.net/p/mod-auth-ibmdb2/bugs
 .SH "WEB SITE"
 http://mod-auth-ibmdb2.sourceforge.net

@@ -1,6 +1,6 @@
-.TH db2-auth-routines "8" "June 2012" "db2-auth-routines 1.1" "DB2 UDFs and Stored Procedures"
+.TH db2-hash-routines "8" "February 2013" "db2-hash-routines 1.1" "DB2 UDFs and Stored Procedures"
 .SH NAME
-db2-auth-routines \- DB2 UDFs and SPs for encrypting passwords
+db2-hash-routines \- DB2 UDFs and SPs to generate and validate hashes
 .SH SYNOPSIS
 \fBUser Defined Functions:\fR
 .PP
@@ -26,7 +26,7 @@ db2-auth-routines \- DB2 UDFs and SPs for encrypting passwords
 .PP
 >>-VALIDATE_PW--(--password--,--hash--,--is_valid--)-----------><
 .SH DESCRIPTION
-These functions and procedures can be used to encrypt passwords within DB2.
+These functions and procedures can be used to generate hashes in DB2.
 .TP
 \fBmd5( '\fR\fIcleartext\fR\fB' )\fR 
 .RS 0
@@ -271,6 +271,6 @@ Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
 .br
-http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
+http://sourceforge.net/p/mod-auth-ibmdb2/bugs
 .SH "WEB SITE"
 http://mod-auth-ibmdb2.sourceforge.net
