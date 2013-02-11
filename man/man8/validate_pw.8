@@ -1,6 +1,6 @@
-.TH validate_pw "8" "June 2012" "validate_pw" "DB2 User Defined Function and Stored Procedure"
+.TH validate_pw "8" "February 2013" "validate_pw" "DB2 User Defined Function and Stored Procedure"
 .SH NAME
-validate_pw \- DB2 UDF and SP for validating a password against a hash
+validate_pw \- DB2 UDF and SP to validate a password against a hash
 .SH SYNOPSIS
 >>-VALIDATE_PW--(--password--,--hash--)------------------------><
 .PP
@@ -13,7 +13,8 @@ empty, otherwise an SQLSTATE 39701 is returned.
 .PP
 The result of the routine is an INTEGER. If the password is valid, 1 is returned. If the password is not valid, 0 is returned. The result can be null; if the argument is null, the result is the null value.
 .SH EXAMPLES
-1)
+\fBExample 1:\fR
+
 .br
 Validating the password \fItestpwd\fR against the crypt hash \fIcqs7uOvz8KBlk\fR.
 .PP
@@ -27,7 +28,8 @@ SELECT validate_pw('testpwd', 'cqs7uOvz8KBlk') FROM SYSIBM.SYSDUMMY1"
   1 record(s) selected.
 .fi
 .PP
-2)
+\fBExample 2:\fR
+
 .br
 .nf
 CALL validate_pw('testpwd', 'cqs7uOvz8KBlk', ?)
@@ -40,7 +42,8 @@ CALL validate_pw('testpwd', 'cqs7uOvz8KBlk', ?)
   Return Status = 0
 .fi
 .PP
-3)
+\fBExample 3:\fR
+
 .br
 .nf
 CALL validate_pw('testpwd', '0123456789abcdef', ?)
@@ -57,6 +60,6 @@ Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
 .br
-http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
+http://sourceforge.net/p/mod-auth-ibmdb2/bugs
 .SH "WEB SITE"
 http://mod-auth-ibmdb2.sourceforge.net

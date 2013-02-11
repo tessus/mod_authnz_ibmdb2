@@ -1,6 +1,6 @@
-.TH md5 "8" "June 2012" "md5" "DB2 User Defined Function and Stored Procedure"
+.TH md5 "8" "February 2013" "md5" "DB2 User Defined Function and Stored Procedure"
 .SH NAME
-md5 \- DB2 UDF and SP for encrypting passwords
+md5 \- DB2 UDF and SP to generate an md5 hash
 .SH SYNOPSIS
 >>-MD5--(--expression--)---------------------------------------><
 .PP
@@ -12,7 +12,8 @@ The argument can be a character string that is either a CHAR or VARCHAR not exce
 .PP
 The result of the function is CHAR(32). The result can be null; if the argument is null, the result is the null value.
 .SH EXAMPLES
-1)
+\fBExample 1:\fR
+
 .br
 Inserting the user \fItest\fR and the md5 hash of the clear text \fItestpwd\fR to the table \fIusers\fR.
 .PP
@@ -21,7 +22,8 @@ INSERT INTO USERS (username, password)
   VALUES ('test', md5('testpwd'))
 .fi
 .PP
-2)
+\fBExample 2:\fR
+
 .br
 .nf
 SELECT md5( 'testpwd' ) FROM SYSIBM.SYSDUMMY1
@@ -33,7 +35,8 @@ SELECT md5( 'testpwd' ) FROM SYSIBM.SYSDUMMY1
   1 record(s) selected.
 .fi
 .PP
-3)
+\fBExample 3:\fR
+
 .br
 .nf
 CALL md5('testpwd', ?)
@@ -50,6 +53,6 @@ Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
 .br
-http://sourceforge.net/tracker/?func=add&group_id=103064&atid=633717
+http://sourceforge.net/p/mod-auth-ibmdb2/bugs
 .SH "WEB SITE"
 http://mod-auth-ibmdb2.sourceforge.net
