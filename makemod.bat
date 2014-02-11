@@ -1,7 +1,5 @@
 @echo off
 
-rem $Id$
-
 rem SCRIPT: makemod.bat
 rem Builds the mod_authnz_ibmdb2 module with Visual Studio C/C++ Compiler
 rem Usage: makemod.bat
