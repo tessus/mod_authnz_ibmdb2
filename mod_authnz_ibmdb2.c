@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | mod_authnz_ibmdb2: authentication using an IBM DB2 database          |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2012 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2014 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
