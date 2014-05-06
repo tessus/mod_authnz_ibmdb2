@@ -24,10 +24,10 @@
 #ifndef MOD_AUTHNZ_IBMDB2_H
 #define MOD_AUTHNZ_IBMDB2_H
 
-#ifndef FALSE								// FALSE
+#ifndef FALSE                               // FALSE
 #define FALSE 0
 #endif
-#ifndef TRUE								// TRUE
+#ifndef TRUE                                // TRUE
 #define TRUE (!FALSE)
 #endif
 
@@ -37,41 +37,43 @@
 
 #define MAX_IBMDB2_UID_LENGTH   18
 #define MAX_IBMDB2_PWD_LENGTH   30
-#define MAX_UID_LENGTH          32
-#define MAX_PWD_LENGTH          64
+#define MAX_UID_LENGTH          64
+#define MAX_PWD_LENGTH         128
 #define MAX_GRP_LENGTH         128
 #define MAX_DSN_LENGTH         512
 
-#define LOG_DBG( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
-#define LOG_DBGS( msg ) ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, s, "%s", msg )
-#define LOG_ERROR( msg ) ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
-#define MAXERRLEN				SQL_MAX_MESSAGE_LENGTH + SQL_SQLSTATE_SIZE + 255
+#define LOG_DBG( msg )         ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, r, "%s", msg )
+#define LOG_DBGS( msg )        ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, s, "%s", msg )
+#define LOG_ERROR( msg )       ap_log_rerror( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, r, "%s", msg )
+#define MAXERRLEN              SQL_MAX_MESSAGE_LENGTH + SQL_SQLSTATE_SIZE + 255
 
+#define APR_SHA256PW_ID        "{SHA256}"
+#define APR_SHA256PW_IDLEN     8
 
 //	structure to hold the configuration details for the request
 typedef struct  {
-	char *ibmdb2user;						// user ID to connect to db server
-	char *ibmdb2passwd;						// password to connect to db server
-	char *ibmdb2DB;							// Database name
-	char *ibmdb2host;						// Database hostname (for uncataloged databases)
-	int  ibmdb2port;						// Instance port number (for uncataloged databases)
-	char *ibmdb2pwtable;					// user password table
-	char *ibmdb2grptable;					// user group table
-	char *ibmdb2NameField;					// field in password/grp table with username
-	char *ibmdb2PasswordField;				// field in password table with password
-	char *ibmdb2GroupField;					// field in group table with group name
-	int  ibmdb2Crypted;						// are passwords encrypted?
-	int  ibmdb2KeepAlive;					// keep connection persistent?
-	int  ibmdb2Authoritative;				// are we authoritative?
-	int  ibmdb2NoPasswd;					// do we ignore password?
-	char *ibmdb2UserCondition; 				// Condition to add to the user where-clause in select query
-	char *ibmdb2GroupCondition;				// Condition to add to the group where-clause in select query
-	char *ibmdb2UserProc;					// stored procedure for user auth
-	char *ibmdb2GroupProc;					// stored procedure for group auth
-	int  ibmdb2caching;						// are user credentials cached?
-	int  ibmdb2grpcaching;					// is group information cached?
-	char *ibmdb2cachefile;					// path to cache file
-	char *ibmdb2cachelifetime;				// cache lifetime in seconds
+	char *ibmdb2user;                       // user ID to connect to db server
+	char *ibmdb2passwd;                     // password to connect to db server
+	char *ibmdb2DB;                         // Database name
+	char *ibmdb2host;                       // Database hostname (for uncataloged databases)
+	int  ibmdb2port;                        // Instance port number (for uncataloged databases)
+	char *ibmdb2pwtable;                    // user password table
+	char *ibmdb2grptable;                   // user group table
+	char *ibmdb2NameField;                  // field in password/grp table with username
+	char *ibmdb2PasswordField;              // field in password table with password
+	char *ibmdb2GroupField;                 // field in group table with group name
+	int  ibmdb2Crypted;                     // are passwords encrypted?
+	int  ibmdb2KeepAlive;                   // keep connection persistent?
+	int  ibmdb2Authoritative;               // are we authoritative?
+	int  ibmdb2NoPasswd;                    // do we ignore password?
+	char *ibmdb2UserCondition;              // Condition to add to the user where-clause in select query
+	char *ibmdb2GroupCondition;             // Condition to add to the group where-clause in select query
+	char *ibmdb2UserProc;                   // stored procedure for user auth
+	char *ibmdb2GroupProc;                  // stored procedure for group auth
+	int  ibmdb2caching;                     // are user credentials cached?
+	int  ibmdb2grpcaching;                  // is group information cached?
+	char *ibmdb2cachefile;                  // path to cache file
+	char *ibmdb2cachelifetime;              // cache lifetime in seconds
 } authn_ibmdb2_config_t;
 
 //	structure to hold the sqlca variables
@@ -83,8 +85,8 @@ typedef struct
 } sqlerr_t;
 
 
-static SQLHANDLE   henv;					// environment handle
-static SQLHANDLE   hdbc;					// db connection handle
+static SQLHANDLE   henv;                    // environment handle
+static SQLHANDLE   hdbc;                    // db connection handle
 
 #endif
 
