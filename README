@@ -38,11 +38,11 @@ AuthIBMDB2GroupField            name of the group field within the table (defaul
 
 AuthIBMDB2PasswordField         name of the password field within the table (default: password)
 
-AuthIBMDB2CryptedPasswords      passwords are stored encrypted (default: yes) 
+AuthIBMDB2CryptedPasswords      passwords are stored encrypted (default: yes)
 
 AuthIBMDB2KeepAlive             connection kept open across requests (default: yes)
 
-AuthIBMDB2Authoritative         lookup is authoritative (default: yes) 
+AuthIBMDB2Authoritative         lookup is authoritative (default: yes)
 
 AuthIBMDB2NoPasswd              just check, if user is in usertable (default: no)
 
@@ -131,6 +131,7 @@ Two examples for stored procedures are given in the documentation.
 mod_authnz_ibmdb2.c     the Apache module
 mod_authnz_ibmdb2.h     the Apache module's header file
 caching.h               include file for caching mechanism
+sha2.h                  include file for APR sha256
 makemod                 bash script to compile the module
 makemod.bat             script to compile the module under win32
 README                  this file
