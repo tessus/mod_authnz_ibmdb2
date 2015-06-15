@@ -1,10 +1,10 @@
-.TH mod_authnz_ibmdb2 "8" "February 2013" "mod_authnz_ibmdb2" "Apache module"
+.TH mod_authnz_ibmdb2 "8" "June 2015" "mod_authnz_ibmdb2" "Apache module"
 .SH NAME
 mod_authnz_ibmdb2 \- Apache authentication module for DB2
 .SH DESCRIPTION
 mod_authnz_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for storing user and group information.
 .PP
-The module is designed for Apache 2.2 and later. It supports several encryption methods. 
+The module is designed for Apache 2.2 and later. It supports several encryption methods.
 .SH "CONFIGURATION DIRECTIVES"
 These directives are used to control the behaviour of the authentication process.
 .PP
@@ -137,7 +137,7 @@ Alias         /private               "/data/private/"
 <Directory "/data/private">
     AuthName                    "DB2 Authentication for private"
     AuthType                    Basic
-    AuthBasicProvider           ibmdb2 
+    AuthBasicProvider           ibmdb2
 
     AuthIBMDB2User              db2user
     AuthIBMDB2Password          db2pwd
@@ -159,9 +159,9 @@ Alias         /private               "/data/private/"
 </Directory>
 .fi
 .PP
-You also could have ommitted the parameters 
+You also could have ommitted the parameters
 .br
-AuthIBMDB2NameField, AuthIBMDB2PasswordField, 
+AuthIBMDB2NameField, AuthIBMDB2PasswordField,
 .br
 AuthIBMDB2CryptedPasswords, AuthIBMDB2KeepAlive,
 .br
@@ -190,7 +190,7 @@ CREATE PROCEDURE db2user.user_sp
 (IN v_username VARCHAR(128), OUT v_password VARCHAR(128))
 LANGUAGE SQL
 BEGIN
-  SELECT password INTO v_password FROM web.users 
+  SELECT password INTO v_password FROM web.users
 WHERE username = v_username;
 END@
 
@@ -200,7 +200,7 @@ LANGUAGE SQL
 DYNAMIC RESULT SETS 1
 BEGIN
   DECLARE res CURSOR WITH RETURN FOR
-  SELECT groupname FROM web.groups 
+  SELECT groupname FROM web.groups
   WHERE username = v_username AND active = 1;
 
   OPEN res;
@@ -213,7 +213,7 @@ The stored procedures return the password and the list of groups of the user pas
 <Directory "/data/private">
     AuthName                    "DB2 Authentication for private"
     AuthType                    Basic
-    AuthBasicProvider           ibmdb2 
+    AuthBasicProvider           ibmdb2
 
     AuthIBMDB2User              db2user
     AuthIBMDB2Password          db2pwd
@@ -235,6 +235,6 @@ Written by Helmut K. C. Tessarek.
 .SH "BUGS"
 Hopefully none :-) But if you find one, please report it at:
 .br
-http://sourceforge.net/p/mod-auth-ibmdb2/bugs
+https://github.com/tessus/mod_authnz_ibmdb2/issues
 .SH "WEB SITE"
-http://mod-auth-ibmdb2.sourceforge.net
+http://tessus.github.io/mod_authnz_ibmdb2
