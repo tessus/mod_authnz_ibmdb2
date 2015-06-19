@@ -44,10 +44,11 @@
 #include "apr_md5.h"
 #include "apr_sha1.h"
 #include "apr_strings.h"
+#include "apr_base64.h"
+#include "sha2.h"                           // sha256 include from APR
 
 #include "mod_authnz_ibmdb2.h"              // structures, defines, globals
 #include "caching.h"                        // functions for caching mechanism
-#include "sha2.h"                           // sha256 include from APR
 
 #ifndef WIN32
 #include <sys/types.h>
