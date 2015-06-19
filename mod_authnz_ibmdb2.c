@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | mod_authnz_ibmdb2: authentication using an IBM DB2 database          |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2014 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2015 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
@@ -22,7 +22,7 @@
 */
 
 #define MODULE "mod_authnz_ibmdb2"
-#define RELEASE "2.2.2"
+#define RELEASE "2.2.4"
 
 #define PCALLOC apr_pcalloc
 #define SNPRINTF apr_snprintf
@@ -153,10 +153,17 @@ int validate_pw( const char *sent, const char *real )
 	{
 		// maybe a different encrypted password (glibc2 crypt)?
 		result = crypt( sent, real );
-		if( strcmp( real, result ) == 0 )
-			return TRUE;
+		if( result != NULL )
+		{
+			if( strcmp( real, result ) == 0 )
+				return TRUE;
+			else
+				return FALSE;
+		}
 		else
+		{
 			return FALSE;
+		}
 	}
 #endif
 }
