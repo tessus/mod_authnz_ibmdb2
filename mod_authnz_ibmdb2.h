@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | mod_authnz_ibmdb2: structures, defines, globals                      |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2014 Helmut K. C. Tessarek                        |
+  | Copyright (c) 2006-2015 Helmut K. C. Tessarek                        |
   +----------------------------------------------------------------------+
   | Licensed under the Apache License, Version 2.0 (the "License"); you  |
   | may not use this file except in compliance with the License. You may |
@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
   | Author: Helmut K. C. Tessarek                                        |
   +----------------------------------------------------------------------+
-  | Website: http://mod-auth-ibmdb2.sourceforge.net                      |
+  | Website: http://tessus.github.io/mod_authnz_ibmdb2                   |
   +----------------------------------------------------------------------+
 */
 
