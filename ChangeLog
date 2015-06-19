@@ -1,3 +1,10 @@
+mod_authnz_ibmdb2 2.2.4
+
+ - fixed a potential segfault
+ - fixed a compiler warning
+ - mem alloc in caching
+ - updated man pages
+
 mod_authnz_ibmdb2 2.2.2
 
  - added support for sha256
