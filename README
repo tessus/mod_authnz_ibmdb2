@@ -132,6 +132,7 @@ Two examples for stored procedures are given in the documentation.
 
 mod_authnz_ibmdb2.c     the Apache module
 mod_authnz_ibmdb2.h     the Apache module's header file
+caching.c               code for caching mechanism
 caching.h               include file for caching mechanism
 sha2.h                  include file for APR sha256
 makemod                 bash script to compile the module
