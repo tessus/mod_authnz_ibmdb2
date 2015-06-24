@@ -22,11 +22,7 @@
 */
 
 #define MODULE "mod_authnz_ibmdb2"
-#define RELEASE "2.2.4"
-
-#define PCALLOC apr_pcalloc
-#define SNPRINTF apr_snprintf
-#define PSTRDUP apr_pstrdup
+#define RELEASE "2.2.5"
 
 #include "ap_provider.h"
 #include "httpd.h"

@@ -24,6 +24,8 @@
 #ifndef MOD_AUTHNZ_IBMDB2_H
 #define MOD_AUTHNZ_IBMDB2_H
 
+#include "sqlcli1.h"
+
 #ifndef FALSE                               // FALSE
 #define FALSE 0
 #endif
@@ -49,6 +51,10 @@
 
 #define APR_SHA256PW_ID        "{SHA256}"
 #define APR_SHA256PW_IDLEN     8
+
+#define PCALLOC                apr_pcalloc
+#define SNPRINTF               apr_snprintf
+#define PSTRDUP                apr_pstrdup
 
 //	structure to hold the configuration details for the request
 typedef struct  {
@@ -83,7 +89,6 @@ typedef struct
 	char state[SQL_SQLSTATE_SIZE + 1];
 	int code;
 } sqlerr_t;
-
 
 static SQLHANDLE   henv;                    // environment handle
 static SQLHANDLE   hdbc;                    // db connection handle

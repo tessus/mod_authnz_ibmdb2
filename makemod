@@ -27,7 +27,7 @@ then
 	rm -rf .libs
 fi
 
-for x in mod_authnz_ibmdb2.la mod_authnz_ibmdb2.lo mod_authnz_ibmdb2.o mod_authnz_ibmdb2.slo mod_authnz_ibmdb2.so
+for x in mod_authnz_ibmdb2.la mod_authnz_ibmdb2.lo mod_authnz_ibmdb2.o mod_authnz_ibmdb2.slo mod_authnz_ibmdb2.so caching.lo caching.o caching.slo
 do
 	if [ -f $x ]
 	then
@@ -48,9 +48,9 @@ fi
 
 if [ "$OS" != "Darwin" ]
 then
-	$APXS -c -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 mod_authnz_ibmdb2.c
+	$APXS -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 -c mod_authnz_ibmdb2.c caching.c
 else
-	$APXS -c -Wc,"-arch x86_64" -Wl,"-arch x86_64" -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 mod_authnz_ibmdb2.c
+	$APXS -c -Wc,"-arch x86_64" -Wl,"-arch x86_64" -I$DB2PATH/include -L$DB2PATH/lib $EXTRA_LFLAG -ldb2 mod_authnz_ibmdb2.c caching.c
 fi
 
 # Moving the module to the apropriate directory
