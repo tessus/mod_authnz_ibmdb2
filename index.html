@@ -14,9 +14,27 @@
       <h1 class="project-name">mod_authnz_ibmdb2</h1>
       <h2 class="project-tagline">Apache authentication module for IBM DB2</h2>
       <a href="https://github.com/tessus/mod_authnz_ibmdb2" class="btn">View on GitHub</a>
-      <a href="https://github.com/tessus/mod_authnz_ibmdb2/releases/latest" class="btn">Download latest release</a>
+      <a href="https://github.com/tessus/mod_authnz_ibmdb2/releases/latest" class="btn" id="dllatest">Download latest release</a>
       <a href="https://github.com/tessus/mod_authnz_ibmdb2/archive/master.zip" class="btn">Download git master</a>
     </section>
+
+<script>
+function process(resopnse) {
+  if (resopnse.meta.status != 200) {
+    return;
+  }
+  var data = resopnse.data;
+  var release = data.tag_name;
+  document.getElementById("dllatest").innerHTML = "Download latest release ("+release+")";
+  var newUrl = "https://github.com/tessus/mod_authnz_ibmdb2/releases/download/RELEASE/mod_authnz_ibmdb2-RELEASE.tar.gz";
+  newUrl = newUrl.replace(/RELEASE/g, release);
+  document.getElementById('dllatest').href = newUrl;
+}
+
+var script = document.createElement('script');
+script.src = 'https://api.github.com/repos/tessus/mod_authnz_ibmdb2/releases/latest?callback=process';
+document.body.appendChild(script);
+</script>
 
     <section class="main-content">
       <h3>
