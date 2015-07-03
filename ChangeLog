@@ -1,3 +1,7 @@
+mod_authnz_ibmdb2 2.2.5
+
+ - internal code changes
+
 mod_authnz_ibmdb2 2.2.4
 
  - fixed a potential segfault
