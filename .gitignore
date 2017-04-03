@@ -3,3 +3,14 @@
 *.lo
 *.o
 *.slo
+build/
+config.h
+config.log
+config.nice
+config.status
+configure
+Makefile
+*.in
+aclocal.m4
+autom4te.cache/
+html/
