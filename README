@@ -6,11 +6,17 @@
 | Website: http://tessus.github.io/mod_authnz_ibmdb2                   |
 +----------------------------------------------------------------------+
 
-1) Description of the module
-2) File descriptions
+1) Install
+2) Description of the module
 
 +----------------------------------------------------------------------+
-| 1. Description of the module                                         |
+| 1. Install                                                           |
++----------------------------------------------------------------------+
+
+see INSTALL
+
++----------------------------------------------------------------------+
+| 2. Description of the module                                         |
 +----------------------------------------------------------------------+
 
 mod_authnz_ibmdb2 is an Apache authentication module using IBM DB2 as the backend database for
@@ -125,19 +131,3 @@ The stored procedure for group authentication must return an open cursor
 to the resultset.
 
 Two examples for stored procedures are given in the documentation.
-
-+----------------------------------------------------------------------+
-| 2. File descriptions                                                 |
-+----------------------------------------------------------------------+
-
-mod_authnz_ibmdb2.c     the Apache module
-mod_authnz_ibmdb2.h     the Apache module's header file
-caching.c               code for caching mechanism
-caching.h               include file for caching mechanism
-sha2.h                  include file for APR sha256
-makemod                 bash script to compile the module
-makemod.bat             script to compile the module under win32
-README                  this file
-INSTALL                 compile and install instructions
-ChangeLog               change log
-man/maninstall          bash script to install the manpages

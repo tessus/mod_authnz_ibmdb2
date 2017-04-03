@@ -6,51 +6,67 @@
 | Website: http://tessus.github.io/mod_authnz_ibmdb2                   |
 +----------------------------------------------------------------------+
 
-1) Building the module
-2) Details on building the module (Linux)
-3) Installing the man pages
+1) Building the module from a cloned repository
+2) Building the module from a tarball
+3) configure options
 
 +----------------------------------------------------------------------+
-| 1. Building the module                                               |
+| 1. Building the module from a cloned repository                      |
 +----------------------------------------------------------------------+
 
-Please change the PATH settings and the APXS variable
-in the makemod script for your environment.
+git clone https://github.com/tessus/mod_authnz_ibmdb2.git
 
-run as root: ./makemod
-
-+----------------------------------------------------------------------+
-| 2. Details on building the module                                    |
-+----------------------------------------------------------------------+
-
-DB2PATH=/home/db2inst1/sqllib
-EXTRA_LFLAG="-Wl,-rpath,$DB2PATH/lib"
-
-apxs -c -ldb2 $EXTRA_LFLAG mod_authnz_ibmdb2.c caching.c
-
-If the sqlcli1.h header file cannot be found, add the -I option to specify the
-directory where sqlcli1.h can be found.
-If the db2 library cannot be found, add the -L option to specify the
-directory where libdb2.so can be found.
-For example:
-
-apxs -c -L/home/db2inst1/sqllib/lib -I/home/db2inst1/sqllib/include -ldb2
- $EXTRA_LFLAG mod_authnz_ibmdb2.c caching.c
-
-To move the DSO to the modules directory:
-
-apxs -i mod_authnz_ibmdb2.la
-
-As the next step the DB2 environment has to be set in the Apache startscript.
-You just need to source the db2profile script, which is located in DB2PATH.
-
-Finally, add the following directive to httpd.conf:
-
-LoadModule authnz_ibmdb2_module modules/mod_authnz_ibmdb2.so
+cd mod_authnz_ibmdb2
+./autogen.sh                                        (autotools required)
+./configure                                  (see section 3 for details)
+make install                                      (as root or with sudo)
 
 +----------------------------------------------------------------------+
-| 3. Installing the man pages                                          |
+| 2. Building the module from a tarball                                |
 +----------------------------------------------------------------------+
 
-Change to the ./man directory and run the script
-./maninstall
+Download the latest tarball from:
+https://github.com/tessus/mod_authnz_ibmdb2/releases/latest
+
+tar -xzf mod_authnz_ibmdb2-X.Y.Z.tar.gz
+
+cd mod_authnz_ibmdb2
+./configure                                  (see section 3 for details)
+make install                                      (as root or with sudo)
+
++----------------------------------------------------------------------+
+| 3. configure options and details on building the module              |
++----------------------------------------------------------------------+
+
+If you run ./configure as a user with a DB2 environment and apxs is in
+the path, there's nothing else to worry about.
+
+However, you might have 2 versions of Apache installed and want to
+choose for which one the module is for, or you don't have the DB2 env
+initialized.
+
+There are options to specify the location of the DB2 home and the
+apxs utility:
+
+--with-apxs=FILE                FILE is the pathname of the Apache tool
+
+--with-IBM_DB2=DIR              DIR is the IBM DB2 instance or home
+                                directory where the DB2 application
+                                development headers and libraries are
+                                located
+
+By default man pages are installed automatically, but you can change
+this by using the following flag:
+
+--disable-man-pages
+
+During install the module can also be activated in the Apache config
+file httpd.conf:
+
+--enable-activation
+
+After successful configuration the module can be installed with:
+
+make install
+
+Be aware that this process needs root privileges.
