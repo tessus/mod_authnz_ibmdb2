@@ -12,3 +12,5 @@ install:
 endif
 
 EXTRA_DIST = $(man8_MANS) create_html.sh
+
+CLEANFILES = html/*
