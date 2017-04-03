@@ -1,3 +1,8 @@
+mod_authnz_ibmdb2 2.2.6
+
+ - use autotools build system
+ - updated man pages
+
 mod_authnz_ibmdb2 2.2.5
 
  - internal code changes
