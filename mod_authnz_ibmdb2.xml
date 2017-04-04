@@ -34,10 +34,10 @@
     </Company_Info>
     <Program_Info>
         <Program_Name>mod_authnz_ibmdb2</Program_Name>
-        <Program_Version>2.2.5</Program_Version>
-        <Program_Release_Month>07</Program_Release_Month>
-        <Program_Release_Day>03</Program_Release_Day>
-        <Program_Release_Year>2015</Program_Release_Year>
+        <Program_Version>2.2.6</Program_Version>
+        <Program_Release_Month>04</Program_Release_Month>
+        <Program_Release_Day>04</Program_Release_Day>
+        <Program_Release_Year>2017</Program_Release_Year>
         <Program_Cost_Dollars></Program_Cost_Dollars>
         <Program_Cost_Other_Code></Program_Cost_Other_Code>
         <Program_Cost_Other></Program_Cost_Other>
@@ -51,9 +51,9 @@
         <Program_Category_Class>Servers::Web Servers</Program_Category_Class>
         <Program_System_Requirements></Program_System_Requirements>
         <File_Info>
-            <File_Size_Bytes>21911</File_Size_Bytes>
-            <File_Size_K>21.40</File_Size_K>
-            <File_Size_MB>0.02</File_Size_MB>
+            <File_Size_Bytes>127065</File_Size_Bytes>
+            <File_Size_K>124.09</File_Size_K>
+            <File_Size_MB>0.12</File_Size_MB>
         </File_Info>
         <Expire_Info>
             <Has_Expire_Info>N</Has_Expire_Info>
@@ -101,8 +101,8 @@
             <Application_XML_File_URL>http://tessus.github.io/mod_authnz_ibmdb2/mod_authnz_ibmdb2.xml</Application_XML_File_URL>
         </Application_URLs>
         <Download_URLs>
-            <Primary_Download_URL>http://github.com/tessus/mod_authnz_ibmdb2/releases/download/2.2.5/mod_authnz_ibmdb2-2.2.5.tar.gz</Primary_Download_URL>
-            <Secondary_Download_URL>http://evermeet.cx/pub/mod_authnz_ibmdb2/mod_authnz_ibmdb2-2.2.5.tar.gz</Secondary_Download_URL>
+            <Primary_Download_URL>https://github.com/tessus/mod_authnz_ibmdb2/releases/download/2.2.6/mod_authnz_ibmdb2-2.2.6.tar.gz</Primary_Download_URL>
+            <Secondary_Download_URL>https://evermeet.cx/pub/mod_authnz_ibmdb2/mod_authnz_ibmdb2-2.2.6.tar.gz</Secondary_Download_URL>
             <Additional_Download_URL_1></Additional_Download_URL_1>
             <Additional_Download_URL_2></Additional_Download_URL_2>
         </Download_URLs>
