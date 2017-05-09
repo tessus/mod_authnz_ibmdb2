@@ -26,21 +26,23 @@
 
 #include "mod_authnz_ibmdb2.h"
 
-typedef struct {
-        char   password[MAX_PWD_LENGTH];
-        apr_time_t timestamp;
+typedef struct
+{
+	char       password[MAX_PWD_LENGTH];
+	apr_time_t timestamp;
 } cached_password_timestamp;
 
-typedef struct {
-        int    numgrps;
-        apr_time_t timestamp;
+typedef struct
+{
+	int        numgrps;
+	apr_time_t timestamp;
 } cached_group_timestamp;
 
 
-int write_cache( request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m );
-char *read_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );
-int write_group_cache( request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m );
-char **read_group_cache( request_rec *r, const char *user, authn_ibmdb2_config_t *m );
+int write_cache(request_rec *r, const char *user, const char *password, authn_ibmdb2_config_t *m);
+char *read_cache(request_rec *r, const char *user, authn_ibmdb2_config_t *m);
+int write_group_cache(request_rec *r, const char *user, const char **grplist, authn_ibmdb2_config_t *m);
+char **read_group_cache(request_rec *r, const char *user, authn_ibmdb2_config_t *m);
 
 #endif
 

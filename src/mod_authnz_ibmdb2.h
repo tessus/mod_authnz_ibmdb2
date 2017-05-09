@@ -34,7 +34,7 @@
 #endif
 
 #if AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER == 4
-	#define APACHE24
+#define APACHE24
 #endif
 
 #define MAX_IBMDB2_UID_LENGTH   18
@@ -57,7 +57,8 @@
 #define PSTRDUP                apr_pstrdup
 
 //	structure to hold the configuration details for the request
-typedef struct  {
+typedef struct
+{
 	char *ibmdb2user;                       // user ID to connect to db server
 	char *ibmdb2passwd;                     // password to connect to db server
 	char *ibmdb2DB;                         // Database name

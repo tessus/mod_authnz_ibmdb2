@@ -2,7 +2,7 @@ dnl +----------------------------------------------------------------------+
 dnl |                              Init                                    |
 dnl +----------------------------------------------------------------------+
 
-AC_INIT([mod_authnz_ibmdb2], [2.2.6], [https://github.com/tessus/mod_authnz_ibmdb2/issues])
+AC_INIT([mod_authnz_ibmdb2], [2.2.7-dev], [https://github.com/tessus/mod_authnz_ibmdb2/issues])
 AC_MSG_NOTICE([Configuring $PACKAGE_NAME $PACKAGE_VERSION])
 
 dnl +----------------------------------------------------------------------+
