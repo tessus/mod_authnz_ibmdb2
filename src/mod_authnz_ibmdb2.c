@@ -112,9 +112,12 @@ int validate_pw(const char *sent, const char *real)
 {
 	unsigned int i = 0;
 	char md5str[33];
+	char sha256str[65];
 	char hash[60];
 	unsigned char digest[APR_MD5_DIGESTSIZE];
 	apr_md5_ctx_t context;
+	apr_byte_t digest256[SHA256_DIGEST_LENGTH];
+	SHA256_CTX context256;
 	char *r, *result;
 	apr_status_t status;
 
@@ -142,6 +145,26 @@ int validate_pw(const char *sent, const char *real)
 		*r = '\0';
 
 		if (apr_strnatcmp(real, md5str) == 0)
+			return TRUE;
+		else
+			return FALSE;
+	}
+
+	if (strlen(real) == 64 && (real[0] != '$'))
+	{
+
+		sha256str[0] = '\0';
+
+		apr__SHA256_Init(&context256);
+		apr__SHA256_Update(&context256, sent, strlen(sent));
+		apr__SHA256_Final(digest256, &context256);
+		for (i = 0, r = sha256str; i < SHA256_DIGEST_LENGTH; i++, r += 2)
+		{
+			sprintf(r, "%02x", digest256[i]);
+		}
+		*r = '\0';
+
+		if (apr_strnatcmp(real, sha256str) == 0)
 			return TRUE;
 		else
 			return FALSE;
