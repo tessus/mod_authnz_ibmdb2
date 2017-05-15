@@ -81,6 +81,7 @@ typedef struct
 	int  ibmdb2grpcaching;                  // is group information cached?
 	char *ibmdb2cachefile;                  // path to cache file
 	char *ibmdb2cachelifetime;              // cache lifetime in seconds
+	char *ibmdb2instance;                   // DB2 instance name
 } authn_ibmdb2_config_t;
 
 //	structure to hold the sqlca variables

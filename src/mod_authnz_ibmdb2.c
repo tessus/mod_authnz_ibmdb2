@@ -303,6 +303,19 @@ SQLRETURN ibmdb2_connect(request_rec *r, authn_ibmdb2_config_t *m)
 	SQLRETURN   sqlrc = SQL_SUCCESS;
 	SQLINTEGER  dead_conn = SQL_CD_TRUE;    // initialize to 'conn is dead'
 
+	// check for DB2INSTANCE env var
+
+	if (!getenv("DB2INSTANCE"))
+	{
+		LOG_DBG("  DB2INSTANCE not set");
+		if (m->ibmdb2instance)
+		{
+			sprintf(errmsg, "  set DB2INSTANCE to [%s]", m->ibmdb2instance);
+			LOG_DBG(errmsg);
+			setenv( "DB2INSTANCE", m->ibmdb2instance, 1);
+		}
+	}
+
 	// test the database connection
 	sqlrc = SQLGetConnectAttr(hdbc, SQL_ATTR_CONNECTION_DEAD, &dead_conn, 0, NULL);
 
@@ -459,6 +472,10 @@ static void *create_authnz_ibmdb2_dir_config(apr_pool_t *p, char *d)
 */
 static const command_rec authnz_ibmdb2_cmds[] =
 {
+	AP_INIT_TAKE1("AuthIBMDB2Instance", ap_set_string_slot,
+	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2instance),
+	OR_AUTHCFG, "ibmdb2 instance name"),
+
 	AP_INIT_TAKE1("AuthIBMDB2Database", ap_set_string_slot,
 	(void *) APR_OFFSETOF(authn_ibmdb2_config_t, ibmdb2DB),
 	OR_AUTHCFG, "ibmdb2 database name"),
