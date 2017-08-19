@@ -111,13 +111,20 @@ void sha256_base64(const char *clear, int len, char *out)
 int validate_pw(const char *sent, const char *real)
 {
 	unsigned int i = 0;
-	char md5str[33];
-	char sha256str[65];
 	char hash[60];
+
 	unsigned char digest[APR_MD5_DIGESTSIZE];
 	apr_md5_ctx_t context;
-	apr_byte_t digest256[SHA256_DIGEST_LENGTH];
+	char md5str[33];
+
 	SHA256_CTX context256;
+	apr_byte_t digest256[SHA256_DIGEST_LENGTH];
+	char sha256str[65];
+
+	apr_sha1_ctx_t context1;
+	apr_byte_t digest1[APR_SHA1_DIGESTSIZE];
+	char sha1str[41];
+
 	char *r, *result;
 	apr_status_t status;
 
@@ -152,11 +159,10 @@ int validate_pw(const char *sent, const char *real)
 
 	if (strlen(real) == 64 && (real[0] != '$'))
 	{
-
 		sha256str[0] = '\0';
 
 		apr__SHA256_Init(&context256);
-		apr__SHA256_Update(&context256, sent, strlen(sent));
+		apr__SHA256_Update(&context256, (const apr_byte_t *)sent, strlen(sent));
 		apr__SHA256_Final(digest256, &context256);
 		for (i = 0, r = sha256str; i < SHA256_DIGEST_LENGTH; i++, r += 2)
 		{
@@ -165,6 +171,25 @@ int validate_pw(const char *sent, const char *real)
 		*r = '\0';
 
 		if (apr_strnatcmp(real, sha256str) == 0)
+			return TRUE;
+		else
+			return FALSE;
+	}
+
+	if (strlen(real) == 40 && (real[0] != '$'))
+	{
+		sha1str[0] = '\0';
+
+		apr_sha1_init(&context1);
+		apr_sha1_update(&context1, sent, strlen(sent));
+		apr_sha1_final(digest1, &context1);
+		for (i = 0, r = sha1str; i < APR_SHA1_DIGESTSIZE; i++, r += 2)
+		{
+			sprintf(r, "%02x", digest1[i]);
+		}
+		*r = '\0';
+
+		if (apr_strnatcmp(real, sha1str) == 0)
 			return TRUE;
 		else
 			return FALSE;
